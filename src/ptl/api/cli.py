@@ -67,7 +67,12 @@ def cmd_export(args):
 
 
 def cmd_eval(args):
-    from ...eval.run_eval import run_eval
+    try:
+        from eval.run_eval import run_eval
+    except ImportError:
+        print("eval runner needs the repo root on sys.path "
+              "(run from the repo root)", file=sys.stderr)
+        return 1
     report = run_eval(args.preds, args.labels, faded_ids_path=args.faded_ids)
     print(json.dumps(report, indent=2))
     return 0
