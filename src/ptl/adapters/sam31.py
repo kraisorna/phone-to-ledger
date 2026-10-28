@@ -113,5 +113,6 @@ class Sam31Segmenter(Segmenter):
         for text in texts:
             boxes.extend(self.boxes_from_text(text))
         return [Crop(index=i,
-                     polygon=[[x1, y1], [x2, y1], [x2, y2], [x1, y2]])
+                     polygon=[[x1, y1], [x2, y1], [x2, y2], [x1, y2]],
+                     image_path=str(image_path))
                 for i, (x1, y1, x2, y2, _w, _h) in enumerate(boxes)]

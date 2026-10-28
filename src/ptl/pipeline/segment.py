@@ -14,6 +14,7 @@ class Crop:
     enhanced_for_faded: bool = False
     partial: bool = False  # partial capture: mark, never extract as complete
     quality: dict = field(default_factory=dict)
+    image_path: str = ""  # source file; empty when pixels unavailable
 
     def to_dict(self):
         return {
@@ -21,6 +22,7 @@ class Crop:
             "deskewed": self.deskewed,
             "enhanced_for_faded": self.enhanced_for_faded,
             "partial": self.partial, "quality": self.quality,
+            "image_path": self.image_path,
         }
 
 
