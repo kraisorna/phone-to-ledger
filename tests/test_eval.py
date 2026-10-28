@@ -1,6 +1,13 @@
+import argparse
+import io
+import json
+import os
+import tempfile
 import unittest
+from contextlib import redirect_stdout
 
 from eval.score import aggregate, score_doc
+from ptl.api.cli import cmd_eval
 from tests.fixtures import fresh
 
 
@@ -27,6 +34,24 @@ class TestEval(unittest.TestCase):
         self.assertEqual(rep["overall"]["doc_all_correct"], 1)
         self.assertEqual(rep["faded"]["n"], 1)
         self.assertEqual(rep["faded"]["doc_all_correct"], 0)
+
+    def test_cmd_eval_runs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            labels = os.path.join(tmp, "labels")
+            os.mkdir(labels)
+            with open(os.path.join(labels, "d1.json"), "w",
+                      encoding="utf-8") as f:
+                json.dump(fresh(), f)
+            preds = os.path.join(tmp, "preds.json")
+            with open(preds, "w", encoding="utf-8") as f:
+                json.dump({"d1": fresh()}, f)
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                rc = cmd_eval(argparse.Namespace(
+                    preds=preds, labels=labels, faded_ids=""))
+            self.assertEqual(rc, 0)
+            report = json.loads(buf.getvalue())
+            self.assertEqual(report["overall"]["doc_all_correct"], 1)
 
 
 if __name__ == "__main__":
