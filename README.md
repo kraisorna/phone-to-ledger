@@ -9,9 +9,9 @@ phone photo -> ingest -> segment -> extract -> validate -> export.
 - `src/ptl/money.py` — satang-int money + VAT helpers (700bp, half-up)
 - `src/ptl/pipeline/` — `ingest`, `segment`, `quality`, `extract`,
   `validate_rules` (R1-R12 pure fns), `triage`, `export`
-- `src/ptl/adapters/` — `base` interfaces + `sam31` (live via
-  Meta Model API, needs `MODEL_API_KEY`), `spark`, `glimmer`
-  stubs, working `tesseract` baseline
+- `src/ptl/adapters/` — `base` interfaces + live `sam31` /
+  `spark` (Meta Model API, needs `MODEL_API_KEY`), `glimmer`
+  stub, working `tesseract` baseline
 - `src/ptl/review/queue.py` — human review queue
 - `src/ptl/api/cli.py` — `ptl` CLI entry
 - `eval/` — scorer + eval runner + baselines A-D
