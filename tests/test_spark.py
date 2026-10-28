@@ -113,7 +113,9 @@ class TestSpark(unittest.TestCase):
 
     def test_input_kinds(self):
         ext = SparkExtractor(api_key="k")
-        opener = _urlopen_ok(_doc(json.dumps(fresh())))
+        doc = _doc(json.dumps(fresh()))
+        opener = mock.MagicMock(
+            side_effect=lambda *a, **k: _urlopen_ok(doc)())
         with tempfile.TemporaryDirectory() as tmp:
             img = _write(os.path.join(tmp, "r.jpg"), b"fake")
             with mock.patch("ptl.adapters.spark.urllib.request.urlopen",
