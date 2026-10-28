@@ -15,7 +15,8 @@ phone photo -> ingest -> segment -> extract -> validate -> export.
 - `src/ptl/api/cli.py` — `ptl` CLI entry
 - `eval/` — scorer + eval runner + baselines A-D
 - `tests/` — rule/schema/seed-fixture tests
-- `data/` — `dev/`, `test/`, `labels/` (read-only, DVC-managed; not committed)
+- `data/` — `dev/`, `test/`, `labels/` (read-only, DVC-managed; not committed).
+  See `data/COLLECTION.md` for the collection protocol.
 
 ## Quickstart
 
