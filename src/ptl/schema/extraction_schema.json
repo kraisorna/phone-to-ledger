@@ -1,0 +1,149 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ptl-extraction",
+  "description": "Phone-to-ledger extraction schema v1.0 (Thai tax docs)",
+  "type": "object",
+  "required": ["schema_version", "document_type", "issuer", "totals"],
+  "properties": {
+    "schema_version": {"type": "string", "const": "1.0"},
+    "document_type": {
+      "type": "string",
+      "enum": ["invoice", "tax_invoice", "receipt", "combined", "credit_note",
+               "debit_note", "quotation", "delivery_note", "unknown"]
+    },
+    "form": {"type": "string", "enum": ["full", "abbreviated", "unknown"], "default": "unknown"},
+    "can_claim_input_vat": {"type": "boolean"},
+    "document_number": {"type": ["string", "null"]},
+    "status": {"type": "string"},
+    "references_document_id": {"type": ["string", "null"]},
+    "dates": {
+      "type": "object",
+      "properties": {
+        "issue_date": {"type": ["string", "null"]},
+        "tax_point_date": {"type": ["string", "null"]},
+        "due_date": {"type": ["string", "null"]},
+        "printed_at": {"type": ["string", "null"]},
+        "raw_date_string": {"type": ["string", "null"]},
+        "era_resolution": {
+          "type": "object",
+          "properties": {
+            "detected_era": {"type": "string", "enum": ["BE", "AD", "ambiguous"]},
+            "year_digits": {"type": "integer", "enum": [2, 4]},
+            "anchor_used": {"type": ["string", "null"]}
+          }
+        }
+      }
+    },
+    "issuer": {"$ref": "#/definitions/party"},
+    "counterparty": {"$ref": "#/definitions/party"},
+    "line_items": {"type": "array", "items": {"$ref": "#/definitions/line_item"}},
+    "payments": {"type": "array", "items": {"$ref": "#/definitions/payment"}},
+    "totals": {
+      "type": "object",
+      "required": ["grand_total"],
+      "properties": {
+        "grand_total": {"type": "integer", "minimum": 0},
+        "subtotal": {"type": ["integer", "null"]},
+        "discount_total": {"type": ["integer", "null"], "default": 0},
+        "rounding_adjustment": {"type": ["integer", "null"], "default": 0},
+        "service_charge": {"type": ["integer", "null"], "default": 0},
+        "total": {"type": ["integer", "null"]},
+        "vatable_amount": {"type": ["integer", "null"]},
+        "vat_amount": {"type": ["integer", "null"]},
+        "vat_amount_computed": {"type": ["integer", "null"]},
+        "non_vatable_amount": {"type": ["integer", "null"], "default": 0}
+      }
+    },
+    "vat_mode": {"type": "string", "enum": ["inclusive", "exclusive", "exempt", "zero_rated", "unknown"]},
+    "vat_rate_bp": {"type": "integer", "default": 700},
+    "currency": {"type": "string", "default": "THB"},
+    "pos_identifier": {"type": ["string", "null"]},
+    "qr_codes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "purpose": {"type": "string", "enum": ["payment", "etax_access", "feedback", "marketing", "unknown"]},
+          "raw_payload": {"type": "string"}
+        }
+      }
+    },
+    "discarded_text": {"type": "array", "items": {"type": "string"}},
+    "validation": {
+      "type": "object",
+      "properties": {
+        "rules": {"type": "object"},
+        "requires_human_review": {"type": "boolean"},
+        "review_reasons": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "field_confidence": {"type": "object", "additionalProperties": {"type": "number", "minimum": 0, "maximum": 1}},
+    "source": {
+      "type": "object",
+      "properties": {
+        "kind": {"type": "string", "enum": ["ocr", "issued", "imported", "manual"]},
+        "image_uri": {"type": ["string", "null"]},
+        "image_hash": {"type": ["string", "null"]},
+        "image_quality": {
+          "type": "object",
+          "properties": {
+            "blur_score": {"type": "number"}, "contrast_score": {"type": "number"},
+            "skew_degrees": {"type": "number"}, "passed_gate": {"type": "boolean"}
+          }
+        },
+        "model": {"type": ["string", "null"]},
+        "extracted_at": {"type": ["string", "null"]}
+      }
+    }
+  },
+  "definitions": {
+    "party": {
+      "type": "object",
+      "properties": {
+        "legal_name": {"type": ["string", "null"]},
+        "brand_name": {"type": ["string", "null"]},
+        "branch_name": {"type": ["string", "null"]},
+        "branch_code": {"type": ["string", "null"]},
+        "tax_id": {"type": ["string", "null"], "pattern": "^([0-9]{13})?$"},
+        "vat_registered": {"type": ["boolean", "null"]},
+        "address": {"type": ["string", "null"]},
+        "phone": {"type": ["string", "null"]},
+        "email": {"type": ["string", "null"]},
+        "email_is_placeholder": {"type": "boolean"},
+        "is_individual": {"type": "boolean"}
+      }
+    },
+    "line_item": {
+      "type": "object",
+      "required": ["description", "line_total"],
+      "properties": {
+        "line_number": {"type": "integer"},
+        "description": {"type": "string"},
+        "line_total": {"type": "integer"},
+        "quantity": {"type": ["number", "null"]},
+        "quantity_source": {"type": "string", "enum": ["column", "embedded_in_name", "assumed", "unknown"]},
+        "unit": {"type": ["string", "null"]},
+        "unit_price": {"type": ["integer", "null"]},
+        "supply_type": {"type": "string", "enum": ["goods", "service", "unknown"]},
+        "vat_flag": {"type": "string", "enum": ["V", "N", "E", "Z", "unknown"]},
+        "is_modifier": {"type": "boolean", "default": false},
+        "parent_line_number": {"type": ["integer", "null"]},
+        "is_section_header": {"type": "boolean", "default": false},
+        "is_category_subtotal": {"type": "boolean", "default": false}
+      }
+    },
+    "payment": {
+      "type": "object",
+      "required": ["amount"],
+      "properties": {
+        "amount": {"type": "integer", "minimum": 0},
+        "method": {"type": "string"},
+        "method_raw": {"type": ["string", "null"]},
+        "card_mask": {"type": ["string", "null"]},
+        "card_mask_position": {"type": ["string", "null"], "enum": ["leading", "middle", "trailing", "unknown"]},
+        "external_ref": {"type": ["string", "null"]},
+        "paid_at": {"type": ["string", "null"]}
+      }
+    }
+  }
+}
