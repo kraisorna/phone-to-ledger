@@ -1,0 +1,84 @@
+{
+  "_help": "Blank label skeleton. Copy to data/labels/<id>.json and fill. Amounts are integer satang. See data/COLLECTION.md section 6. This key is ignored by validate/score/export.",
+  "schema_version": "1.0",
+  "document_type": "combined",
+  "form": "abbreviated",
+  "can_claim_input_vat": false,
+  "document_number": null,
+  "references_document_id": null,
+  "status": "paid",
+  "dates": {
+    "issue_date": null,
+    "tax_point_date": null,
+    "due_date": null,
+    "printed_at": null,
+    "raw_date_string": null,
+    "era_resolution": {
+      "detected_era": "ambiguous",
+      "year_digits": 4,
+      "anchor_used": null
+    }
+  },
+  "issuer": {
+    "legal_name": null,
+    "brand_name": null,
+    "branch_name": null,
+    "branch_code": null,
+    "tax_id": null,
+    "vat_registered": true,
+    "address": null,
+    "phone": null,
+    "email": null,
+    "email_is_placeholder": false,
+    "is_individual": false
+  },
+  "counterparty": null,
+  "line_items": [
+    {
+      "line_number": 1,
+      "description": null,
+      "description_raw": null,
+      "quantity": 1,
+      "quantity_source": "column",
+      "unit": null,
+      "unit_price": null,
+      "line_total": null,
+      "supply_type": "unknown",
+      "vat_flag": "unknown",
+      "is_modifier": false,
+      "parent_line_number": null,
+      "is_section_header": false,
+      "is_category_subtotal": false
+    }
+  ],
+  "totals": {
+    "subtotal": null,
+    "discount_total": 0,
+    "rounding_adjustment": 0,
+    "service_charge": 0,
+    "total": null,
+    "grand_total": null,
+    "vatable_amount": null,
+    "vat_amount": null,
+    "vat_amount_computed": null,
+    "non_vatable_amount": 0
+  },
+  "vat_mode": "inclusive",
+  "vat_rate_bp": 700,
+  "currency": "THB",
+  "payments": [
+    {
+      "method": null,
+      "method_raw": null,
+      "amount": null,
+      "card_mask": null,
+      "card_mask_position": "unknown",
+      "external_ref": null,
+      "paid_at": null
+    }
+  ],
+  "pos_identifier": null,
+  "qr_codes": [],
+  "discarded_text": [],
+  "field_confidence": {}
+}

@@ -1,9 +1,14 @@
 import json
+import os
 import unittest
 
 from ptl.pipeline.extract import build_document
-from ptl.schema import check_structure, derive_claim_flag, load_schema
+from ptl.schema import (REQUIRED_TOP, check_structure, derive_claim_flag,
+                        load_schema)
 from tests.fixtures import SEEDS, fresh, fresh_seed
+
+TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), "..", "data",
+                             "label.template.json")
 
 
 class TestSchema(unittest.TestCase):
@@ -12,6 +17,13 @@ class TestSchema(unittest.TestCase):
         totals = schema["properties"]["totals"]["properties"]
         self.assertIn("grand_total", totals)
         self.assertIn("rounding_adjustment", totals)
+
+    def test_label_template_parses(self):
+        with open(TEMPLATE_PATH, encoding="utf-8") as f:
+            template = json.load(f)
+        for key in REQUIRED_TOP:
+            self.assertIn(key, template)
+        self.assertIn("grand_total", template["totals"])
 
     def test_golden_struct_valid(self):
         self.assertEqual(check_structure(fresh()), [])
