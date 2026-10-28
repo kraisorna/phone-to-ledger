@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ptl"
+version = "0.1.0"
+description = "Phone-to-ledger pipeline for Thai tax documents"
+requires-python = ">=3.9"
+
+[project.scripts]
+ptl = "ptl.api.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
