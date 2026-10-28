@@ -85,7 +85,7 @@ class TestSeedRules(unittest.TestCase):
         doc = fresh_seed("S5")
         self.assertEqual(doc["dates"]["issue_date"], "2026-08-28")
         self.assertEqual(doc["dates"]["era_resolution"]["anchor_used"],
-                         "TID#20260828")
+                         "TID#2026082800000005170679622")
         v = validate(doc)
         self.assertEqual(failed_rules(v), [])
         self.assertEqual(triage(doc, v)["decision"], "auto_accept")
@@ -135,6 +135,9 @@ class TestS1CafeAmazon(unittest.TestCase):
         self.assertEqual(doc["issuer"]["legal_name"],
                          "บมจ.ปตท. น้ำมันและการค้าปลีก")
         self.assertEqual(doc["issuer"]["brand_name"], "Cafe Amazon")
+        self.assertEqual(doc["issuer"]["tax_id"], "0107561000013")
+        self.assertEqual(doc["issuer"]["branch_code"], "00031")
+        self.assertEqual(doc["document_number"], "2083RC082569/005087")
         v = validate(doc)
         self.assertEqual(failed_rules(v), [])
         self.assertEqual(triage(doc, v)["decision"], "auto_accept")

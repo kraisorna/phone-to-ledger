@@ -67,12 +67,13 @@ def fresh():
 # S1-S6: faithful seed fixtures from 02-ocr-edge-cases.md / 05-ocr-pipeline-plan.md
 #
 # Documented values (merchant, totals, dates, VAT figures, POS ids, masks,
-# emails, QR purpose) are verbatim from the edge-case catalogue. Consistent
-# filler is marked inline: line splits (only totals are documented), synthetic
-# checksum-valid tax IDs (real juristic IDs are NOT transcribed in the docs),
-# and omitted document_number (receipt numbers are not transcribed either).
-# S1_GOLDEN above is an older synthetic fixture kept for the original tests;
-# S1_CAFE_AMAZON here is the faithful one.
+# emails, QR purpose) are verbatim from the edge-case catalogue. S1 and S5
+# were additionally transcribed from the real sample images in
+# ../rapee/docs/samples/ (real tax IDs, branch codes, receipt numbers, line
+# names — checksums verified). Remaining filler is marked inline: S2-S4/S6
+# line splits (only totals documented there), synthetic checksum-valid tax
+# IDs, and omitted document_number where not transcribed.
+# S1_GOLDEN above is an older synthetic fixture kept for the original tests.
 # S7-S11 cannot be fixtured: the docs say "Details still to be written up".
 # ---------------------------------------------------------------------------
 
@@ -85,33 +86,38 @@ S1_CAFE_AMAZON = {
     "document_type": "combined",
     "form": "abbreviated",
     "can_claim_input_vat": False,
+    "document_number": "2083RC082569/005087",
     "status": "paid",
     "dates": {
         "issue_date": "2026-08-27",
-        "raw_date_string": "27/08/2569",
+        "raw_date_string": "27/08/2569 15:14",
         "era_resolution": {"detected_era": "BE", "year_digits": 4,
                            "anchor_used": None},
     },
     "issuer": {
         "legal_name": "บมจ.ปตท. น้ำมันและการค้าปลีก",
         "brand_name": "Cafe Amazon",
-        "branch_code": None,
-        "tax_id": "6666666666660",  # synthetic, checksum-valid
+        "branch_name": "สน.สุทธิสาร",
+        "branch_code": "00031",  # slip also shows store code 2083 (no field)
+        "tax_id": "0107561000013",  # real, checksum-verified
         "vat_registered": True,
     },
     "line_items": [
-        {"line_number": 1, "description": "Drink (name not transcribed)",
-         "line_total": 4500, "quantity": 1, "quantity_source": "assumed",
+        {"line_number": 1, "description": "TW น้ำลิ้นจี่ เย็น",
+         "description_raw": "TW น้ำลิ้นจี่ เย็น",
+         "line_total": 4500, "quantity": 1, "quantity_source": "column",
          "supply_type": "goods", "vat_flag": "V"},
         {"line_number": 2, "description": "- TW หวานน้อย 50%",
          "description_raw": "- TW หวานน้อย 50%",
-         "line_total": 0, "quantity": 1, "quantity_source": "assumed",
+         "line_total": 0, "quantity": 1, "quantity_source": "column",
          "supply_type": "goods", "vat_flag": "V",
          "is_modifier": True, "parent_line_number": 1},
     ],
     "payments": [
         {"amount": 3500, "method": "qr_promptpay",
-         "method_raw": "QRPayment(API)"},
+         "method_raw": "QRPayment(API)",
+         # middle digits creased on the slip; best read:
+         "external_ref": "promptpay\\APIC1787318440425NZX"},
         {"amount": 1000, "method": "voucher_discount",
          "method_raw": "ส่วนลด 10 บาท AIS"},
     ],
@@ -131,7 +137,8 @@ S1_CAFE_AMAZON = {
     # password and a cashier name: unattributed/untranscribed/PII, omitted.
     "discarded_text": ["คิวที่ 71"],
     "field_confidence": {"totals.grand_total": 0.98, "totals.vat_amount": 0.97,
-                         "dates.issue_date": 0.99, "issuer.tax_id": 0.99},
+                         "dates.issue_date": 0.99, "issuer.tax_id": 0.99,
+                         "document_number": 0.95},
     "source": {"kind": "ocr", "image_uri": "s1.jpg",
                "image_hash": "placeholder-hash-s1", "model": "hand-label"},
 }
@@ -301,32 +308,31 @@ S5_SEVEN = {
     "document_type": "combined",
     "form": "abbreviated",
     "can_claim_input_vat": False,
+    "document_number": "R#0000677955P3",
     "status": "paid",
     "dates": {
         "issue_date": "2026-08-28",
-        "raw_date_string": "28/08/69",
+        "raw_date_string": "28/08/69 20:14",
         "era_resolution": {"detected_era": "BE", "year_digits": 2,
-                           "anchor_used": "TID#20260828"},
+                           "anchor_used": "TID#2026082800000005170679622"},
     },
     "issuer": {
-        "legal_name": "CP All",
+        "legal_name": "CP ALL",
         "brand_name": "7-Eleven",
-        "branch_code": None,
-        "tax_id": "4444444444443",  # synthetic, checksum-valid
+        "branch_name": "ประชาราษฎร์ 12",
+        "branch_code": "02304",
+        "tax_id": "0107542000011",  # real, checksum-verified
         "vat_registered": True,
     },
     "line_items": [
         {"line_number": 1, "description": "ขนมพาสฯเมจิ 450",
          "description_raw": "ขนมพาสฯเมจิ 450",  # truncated by the printer
-         "line_total": 1500, "quantity": 1, "quantity_source": "assumed",
-         "supply_type": "goods", "vat_flag": "V"},
-        {"line_number": 2, "description": "Item (name not transcribed)",
-         "line_total": 1325, "quantity": 1, "quantity_source": "assumed",
+         "line_total": 2825, "quantity": 1, "quantity_source": "column",
          "supply_type": "goods", "vat_flag": "V"},
     ],
     "payments": [
         {"amount": 2825, "method": "truemoney_wallet",
-         "method_raw": "TrueMoney Wallet"},
+         "method_raw": "ทรูวอลเล็ท7App"},
     ],
     "totals": {
         "grand_total": 2825, "subtotal": 2825, "discount_total": 0,
@@ -337,8 +343,10 @@ S5_SEVEN = {
     "vat_rate_bp": 700,
     "currency": "THB",
     # condition: faded thermal (tracked via eval faded_ids, no schema field)
+    # POS area too faded to transcribe reliably; omitted, not guessed.
     "field_confidence": {"totals.grand_total": 0.93, "totals.vat_amount": 0.9,
-                         "dates.issue_date": 0.95, "issuer.tax_id": 0.99},
+                         "dates.issue_date": 0.95, "issuer.tax_id": 0.99,
+                         "document_number": 0.9},
     "source": {"kind": "ocr", "image_uri": "s5.jpg",
                "image_hash": "placeholder-hash-s5", "model": "hand-label"},
 }
