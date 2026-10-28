@@ -99,6 +99,25 @@ class SparkExtractor(Extractor):
                     return part["text"]
         return ""
 
+    @classmethod
+    def _normalize_keys(cls, node):
+        """Strip whitespace from dict keys, recursively.
+
+        Constrained decoding occasionally emits 'dates '-style duplicate
+        keys (seen 1/20 live). Exact keys win on collision; spaced dupes
+        fill only absent keys. Never mutates the input.
+        """
+        if isinstance(node, list):
+            return [cls._normalize_keys(v) for v in node]
+        if not isinstance(node, dict):
+            return node
+        out = {k: cls._normalize_keys(v) for k, v in node.items()
+               if not isinstance(k, str) or k == k.strip()}
+        for key, value in node.items():
+            if isinstance(key, str) and key != key.strip():
+                out.setdefault(key.strip(), cls._normalize_keys(value))
+        return out
+
     def extract(self, source):
         """Return (schema doc, {}) for one receipt image."""
         mime, raw = self._image_payload(source)
@@ -119,7 +138,7 @@ class SparkExtractor(Extractor):
         for _ in range(2):
             text = self._output_text(self._post(payload))
             try:
-                parsed = json.loads(text)
+                parsed = self._normalize_keys(json.loads(text))
             except ValueError:
                 parsed = None
                 continue

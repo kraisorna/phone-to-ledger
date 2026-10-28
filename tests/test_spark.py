@@ -111,6 +111,34 @@ class TestSpark(unittest.TestCase):
         self.assertEqual(opener.call_count, 2)
         self.assertEqual(doc["schema_version"], "1.0")  # build defaults
 
+    def test_normalize_keys(self):
+        messy = {"dates ": {"issue_date": "2026-08-28",
+                            "era_resolution ": {"detected_era": "AD"}},
+                 "totals": {"grand_total": 100},
+                 "dup ": 1, "dup": 2}
+        clean = SparkExtractor._normalize_keys(messy)
+        self.assertEqual(clean["dates"]["issue_date"], "2026-08-28")
+        self.assertEqual(clean["dates"]["era_resolution"]["detected_era"],
+                         "AD")
+        self.assertEqual(clean["dup"], 2)  # exact key wins
+        self.assertIn("dates ", messy)  # input untouched
+
+    def test_spaced_output_recovers(self):
+        ext = SparkExtractor(api_key="k")
+        text = json.dumps({"schema_version": "1.0",
+                           "document_type": "combined",
+                           "issuer ": {"tax_id": "1"},
+                           "issuer": {"tax_id": "2"},
+                           "totals ": {"grand_total": 5}})
+        opener = _urlopen_ok(_doc(text))
+        with tempfile.TemporaryDirectory() as tmp:
+            img = _write(os.path.join(tmp, "r.jpg"))
+            with mock.patch("ptl.adapters.spark.urllib.request.urlopen",
+                            opener):
+                doc, _ = ext.extract(img)
+        self.assertEqual(doc["issuer"]["tax_id"], "2")
+        self.assertEqual(doc["totals"]["grand_total"], 5)
+
     def test_input_kinds(self):
         ext = SparkExtractor(api_key="k")
         doc = _doc(json.dumps(fresh()))

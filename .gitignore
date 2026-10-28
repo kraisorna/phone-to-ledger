@@ -10,3 +10,4 @@ data/dev/
 data/test/
 data/labels/
 *.xlsx
+.env
