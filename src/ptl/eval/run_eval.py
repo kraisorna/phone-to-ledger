@@ -7,10 +7,8 @@ faded ids: text file, one doc_id per line.
 import argparse
 import json
 import os
-import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-from eval.score import aggregate, score_doc  # noqa: E402
+from ptl.eval.score import aggregate, score_doc
 
 
 def load_preds(path):

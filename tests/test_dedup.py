@@ -97,7 +97,7 @@ class TestSeenCli(unittest.TestCase):
             out = os.path.join(tmp, "ledger.csv")
             with redirect_stdout(io.StringIO()):
                 self.assertEqual(cmd_export(argparse.Namespace(
-                    doc=doc, out=out, seen=seen)), 0)
+                    doc=doc, out=out, seen=seen, append=False)), 0)
             self.assertTrue(os.path.exists(seen))
             buf = io.StringIO()
             with redirect_stdout(buf):
@@ -113,20 +113,20 @@ class TestSeenCli(unittest.TestCase):
             second = os.path.join(tmp, "second.csv")
             with redirect_stdout(io.StringIO()):
                 self.assertEqual(cmd_export(argparse.Namespace(
-                    doc=doc, out=first, seen=seen)), 0)
+                    doc=doc, out=first, seen=seen, append=False)), 0)
             with open(first, encoding="utf-8") as f:
                 self.assertNotIn("duplicate", f.read())
             err = io.StringIO()
             with redirect_stdout(io.StringIO()), redirect_stderr(err):
                 self.assertEqual(cmd_export(argparse.Namespace(
-                    doc=doc, out=second, seen=seen)), 3)
+                    doc=doc, out=second, seen=seen, append=False)), 3)
             self.assertIn("duplicate (tax_id, document_number)", err.getvalue())
             self.assertFalse(os.path.exists(second))
             # Escape hatch: without --seen the export is forced.
             forced = os.path.join(tmp, "forced.csv")
             with redirect_stdout(io.StringIO()):
                 self.assertEqual(cmd_export(argparse.Namespace(
-                    doc=doc, out=forced, seen="")), 0)
+                    doc=doc, out=forced, seen="", append=False)), 0)
             self.assertTrue(os.path.exists(forced))
 
     def test_blocked_export_records_nothing(self):
@@ -137,7 +137,8 @@ class TestSeenCli(unittest.TestCase):
             seen = os.path.join(tmp, "seen.json")
             with redirect_stdout(io.StringIO()):
                 cmd_export(argparse.Namespace(
-                    doc=doc, out=os.path.join(tmp, "o.csv"), seen=seen))
+                    doc=doc, out=os.path.join(tmp, "o.csv"), seen=seen,
+                    append=False))
             self.assertFalse(os.path.exists(seen))
 
 

@@ -10,11 +10,11 @@ phone photo -> ingest -> segment -> extract -> validate -> export.
 - `src/ptl/pipeline/` — `ingest`, `segment`, `quality`, `extract`,
   `validate_rules` (R1-R12 pure fns), `triage`, `export`
 - `src/ptl/adapters/` — `base` interfaces + live `sam31` /
-  `spark` (Meta Model API, needs `MODEL_API_KEY`), `glimmer`
+  `spark` (Meta Model API, `MODEL_API_KEY` from env or `.env`), `glimmer`
   stub, working `tesseract` baseline
 - `src/ptl/review/queue.py` — human review queue
 - `src/ptl/api/cli.py` — `ptl` CLI entry
-- `eval/` — scorer + eval runner + baselines A-D
+- `src/ptl/eval/` — scorer + eval runner + baselines A-D
 - `tests/` — rule/schema/seed-fixture tests
 - `data/` — `dev/`, `test/`, `labels/` (read-only, DVC-managed; not committed).
   See `data/COLLECTION.md` for the collection protocol.
@@ -36,6 +36,8 @@ make test
 - VAT rate 700bp; inclusive `vat=round(total*7/107)`, exclusive
   `round(vatable*7/100)`, half-up at document level.
 - R1-R6 fail => never auto-post; corrections via credit/debit note only.
+- R13 completeness floor (grand, lines, date) => sparse extractions
+  go to review, never auto-post.
 - ABB (`form=abbreviated`) kept but marked `can_claim_input_vat=false`.
 - PII masked at ingestion (PDPA); low-confidence docs go to review,
   never silently accepted.

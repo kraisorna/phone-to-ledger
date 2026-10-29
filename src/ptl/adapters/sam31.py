@@ -5,7 +5,9 @@ returned box becomes a Crop with its polygon in original-image pixels
 (verified live: the box frame w/h equals the source JPEG dimensions).
 
 Needs MODEL_API_KEY in the environment (or api_key=...). Masks in the
-grammar are ignored: crops come from boxes. Raises loudly on auth /
+grammar are ignored: crops come from boxes. Transient transport
+failures retry 3x with backoff (see base.post_json). Per-call usage
+accumulates on .stats (calls/tokens/seconds). Raises loudly on auth /
 entitlement errors and on non-empty output without boxes; empty output
 means no receipts found (verified with a negative concept).
 
@@ -14,15 +16,15 @@ signal exists in boxes alone (a complete slip can touch frame edges),
 and perspective-correct rendering is a later stage.
 """
 import base64
-import json
 import mimetypes
-import os
 import re
 import urllib.error
 import urllib.request
 
 from ..pipeline.segment import Crop
-from .base import Segmenter
+from .base import (ATTEMPTS, Segmenter, new_stats, post_json,
+                   record_call)
+from .env import resolve_secret
 
 BASE_URL = "https://api.meta.ai/v1"
 MODEL = "sam-3.1"
@@ -34,25 +36,25 @@ BOX_RE = re.compile(r"<\|box;x1=(\d+);y1=(\d+);x2=(\d+);y2=(\d+);"
 
 class Sam31Segmenter(Segmenter):
     def __init__(self, api_key=None, endpoint=BASE_URL, model=MODEL,
-                 concept=CONCEPT, timeout=300):
-        self.api_key = api_key or os.environ.get("MODEL_API_KEY")
+                 concept=CONCEPT, timeout=300, attempts=ATTEMPTS):
+        self.api_key = api_key or resolve_secret("MODEL_API_KEY")
         self.endpoint = (endpoint or BASE_URL).rstrip("/")
         self.model = model
         self.concept = concept
         self.timeout = timeout
+        self.attempts = attempts
+        self.stats = new_stats()
 
     def _post(self, payload):
         if not self.api_key:
             raise RuntimeError(
-                "Set MODEL_API_KEY (Meta Model API dashboard > API keys).")
-        req = urllib.request.Request(
-            f"{self.endpoint}/responses",
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Authorization": f"Bearer {self.api_key}",
-                     "Content-Type": "application/json"})
+                "Set MODEL_API_KEY (environment or project-root .env; "
+                "Meta Model API dashboard > API keys).")
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as r:
-                return json.load(r)
+            return post_json(
+                f"{self.endpoint}/responses", payload, self.api_key,
+                self.timeout, self.attempts,
+                on_response=lambda b, s: record_call(self.stats, b, s))
         except urllib.error.HTTPError as e:
             if e.code == 401:
                 raise RuntimeError(

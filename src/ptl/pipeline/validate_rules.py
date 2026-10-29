@@ -1,4 +1,9 @@
-"""Stage 3: validation rules R1-R12 as pure functions.
+"""Stage 3: validation rules R1-R13 as pure functions.
+
+R13 (completeness floor) is a platform extension past 05's R1-R12: every
+other rule skips on missing data, so without it an empty extraction
+passes everything and auto-posts. Soft severity like R7/R11/R12 — an
+incomplete doc needs a human, not a block.
 
 Each rule returns (passed: bool, detail: str). `validate(doc, seen=None)`
 runs all rules and returns the schema `validation` block.
@@ -221,8 +226,10 @@ def r11_suspicious(doc):
     if email and any(b in email for b in EMAIL_BLOCKLIST):
         return False, f"placeholder email {email!r}"
     branch = (doc.get("issuer") or {}).get("branch_code")
-    if branch and not re.fullmatch(r"\d{5}", branch):
-        return False, f"branch_code {branch!r} not 5 digits"
+    # 5-digit codes are the Revenue Dept norm, but CP Axtra/Lotus's slips
+    # print 4-digit store codes (S2 "1681", S7 "6662" live): accept 4-5.
+    if branch and not re.fullmatch(r"\d{4,5}", branch):
+        return False, f"branch_code {branch!r} not 4-5 digits"
     blob = " ".join([(doc.get("issuer") or {}).get("address") or ""]
                     + (doc.get("discarded_text") or []))
     if CARD_UNMASKED_RE.search(blob):
@@ -240,15 +247,27 @@ def r12_low_confidence(doc):
     return True, "confidence ok"
 
 
+def r13_completeness(doc):
+    """grand_total > 0, >=1 line item, issue_date present => else review."""
+    grand = _totals(doc).get("grand_total")
+    if not isinstance(grand, (int, float)) or grand <= 0:
+        return False, f"grand_total missing or non-positive: {grand!r}"
+    if not doc.get("line_items"):
+        return False, "no line items"
+    if not (doc.get("dates") or {}).get("issue_date"):
+        return False, "issue_date missing"
+    return True, "grand, lines, and date present"
+
+
 RULES = {"R1": r1_line_sum, "R2": r2_grand, "R3": r3_vat_inclusive,
          "R4": r4_vat_split, "R5": r5_payments, "R6": r6_tax_id,
          "R7": r7_dates, "R8": r8_modifiers, "R9": r9_category_subtotals,
          "R10": r10_duplicates, "R11": r11_suspicious,
-         "R12": r12_low_confidence}
+         "R12": r12_low_confidence, "R13": r13_completeness}
 
 
 def validate(doc, seen=None):
-    """Run R1-R12; return the schema `validation` block dict."""
+    """Run R1-R13; return the schema `validation` block dict."""
     results, failed, hard_failed = {}, [], []
     for name in sorted(RULES):
         if name == "R10":

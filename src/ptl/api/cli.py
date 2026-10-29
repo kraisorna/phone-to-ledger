@@ -3,11 +3,12 @@ import argparse
 import json
 import sys
 
+from ..eval.run_eval import run_eval
 from ..pipeline.dedup import SeenStore
 from ..pipeline.ingest import ingest_bytes, mask_pii
 from ..pipeline.triage import triage
 from ..pipeline.validate_rules import validate
-from ..pipeline.export import to_csv, to_row
+from ..pipeline.export import append_csv, to_csv, to_row
 from ..review.queue import ReviewQueue
 from ..schema import check_structure, derive_claim_flag
 
@@ -39,40 +40,53 @@ def cmd_validate(args):
 
 
 def cmd_export(args):
-    doc = derive_claim_flag(_load_json(args.doc))
+    docs = args.doc if isinstance(args.doc, list) else [args.doc]
+    if args.append and not args.out:
+        print("export --append needs --out", file=sys.stderr)
+        return 2
     store = SeenStore.load(args.seen) if args.seen else None
-    validation = validate(doc, store.to_seen() if store else None)
-    if not validation["rules"]["R10"]["pass"]:
-        # Duplicates are excluded with a note, never silently merged:
-        # no ledger row, JSON note on stderr, exit 3. Re-run without
-        # --seen to force-export a false positive.
-        print(json.dumps({"excluded": "duplicate: "
-                          + validation["rules"]["R10"]["detail"]}),
-              file=sys.stderr)
-        return 3
-    status = ("needs_review" if validation["requires_human_review"]
-              else "auto_accept")
-    if any(r in validation.get("hard_failed", []) for r in ("R1", "R2", "R3", "R4", "R5", "R6")):
-        status = "blocked:" + ",".join(validation["hard_failed"])
-    if store is not None and not validation.get("hard_failed"):
-        store.record(doc)
+    rows = []
+    excluded = 0
+    recorded = 0
+    for path in docs:
+        doc = derive_claim_flag(_load_json(path))
+        validation = validate(doc, store.to_seen() if store else None)
+        if not validation["rules"]["R10"]["pass"]:
+            # Duplicates are excluded with a note, never silently
+            # merged: no ledger row, JSON note on stderr. Re-run
+            # without --seen to force-export a false positive.
+            print(json.dumps({"excluded": "duplicate: "
+                              + validation["rules"]["R10"]["detail"]}),
+                  file=sys.stderr)
+            excluded += 1
+            continue
+        status = ("needs_review" if validation["requires_human_review"]
+                  else "auto_accept")
+        if any(r in validation.get("hard_failed", []) for r in ("R1", "R2", "R3", "R4", "R5", "R6")):
+            status = "blocked:" + ",".join(validation["hard_failed"])
+        if store is not None and not validation.get("hard_failed"):
+            store.record(doc)
+            recorded += 1
+        rows.append(to_row(doc, review_status=status))
+    if store is not None and recorded:
         store.save(args.seen)
-    csv_text = to_csv([to_row(doc, review_status=status)])
-    if args.out:
+    if not rows:
+        return 3
+    if args.append:
+        try:
+            append_csv(args.out, rows)
+        except ValueError as e:
+            print(f"export: {e}", file=sys.stderr)
+            return 1
+    elif args.out:
         with open(args.out, "w", encoding="utf-8") as f:
-            f.write(csv_text)
+            f.write(to_csv(rows))
     else:
-        sys.stdout.write(csv_text)
-    return 0
+        sys.stdout.write(to_csv(rows))
+    return 3 if excluded else 0
 
 
 def cmd_eval(args):
-    try:
-        from eval.run_eval import run_eval
-    except ImportError:
-        print("eval runner needs the repo root on sys.path "
-              "(run from the repo root)", file=sys.stderr)
-        return 1
     report = run_eval(args.preds, args.labels, faded_ids_path=args.faded_ids)
     print(json.dumps(report, indent=2))
     return 0
@@ -133,12 +147,15 @@ def build_parser():
     pv.add_argument("--seen", default="",
                     help="seen-store JSON for R10 duplicate check")
     pv.set_defaults(func=cmd_validate)
-    pe = sub.add_parser("export", help="export doc JSON to ledger CSV")
-    pe.add_argument("--doc", required=True)
+    pe = sub.add_parser("export", help="export doc JSON(s) to ledger CSV")
+    pe.add_argument("--doc", required=True, nargs="+",
+                    help="one or more doc JSON paths")
     pe.add_argument("--out", default="")
     pe.add_argument("--seen", default="",
                     help="seen-store JSON: exclude recorded dups (exit 3), "
                          "record accepted docs")
+    pe.add_argument("--append", action="store_true",
+                    help="append rows to --out instead of overwriting it")
     pe.set_defaults(func=cmd_export)
     pg = sub.add_parser("eval", help="score preds vs labels")
     pg.add_argument("--preds", required=True)

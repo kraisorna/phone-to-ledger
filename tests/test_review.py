@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 
-from eval.run_eval import run_eval
+from ptl.eval.run_eval import run_eval
 from ptl.api.cli import cmd_review
 from ptl.review.queue import ReviewQueue
 from tests.fixtures import fresh
