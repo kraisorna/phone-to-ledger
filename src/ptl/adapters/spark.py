@@ -2,24 +2,32 @@
 
 Sends one receipt image + extraction prompt; decoding is constrained to
 the extraction schema (text.format json_schema), so output always parses
-as schema-shaped JSON. Retried once on invalid JSON/structure per 05.
+as schema-shaped JSON. Retried once on invalid JSON/structure per 05;
+transient transport failures retry 3x with backoff (see base.post_json).
+Per-call usage accumulates on .stats (calls/tokens/seconds).
 Returns (doc, {}) — per-field confidence is unknown and R12 skips it.
 
 Needs MODEL_API_KEY. Accepts raw bytes, a path, or a Crop carrying
 image_path. Crop polygons are NOT rendered yet: the whole source image
 is sent, so use one photo per receipt until the crop renderer lands.
+
+temperature defaults to 0 for determinism (None omits it, restoring the
+server default). Note temperature alone does not fully determine
+outputs: reasoning length and occasional key omissions still vary run
+to run (measured live), so downstream validation stays authoritative.
 """
 import base64
 import json
 import mimetypes
-import os
 import urllib.error
 import urllib.request
 
 from ..pipeline.extract import EXTRACTION_PROMPT_RULES, build_document
 from ..pipeline.segment import Crop
 from ..schema import check_structure, load_schema
-from .base import Extractor
+from .base import (ATTEMPTS, Extractor, new_stats, post_json,
+                   record_call)
+from .env import resolve_secret
 
 BASE_URL = "https://api.meta.ai/v1"
 MODEL = "muse-spark-1.3"
@@ -40,24 +48,25 @@ on inclusive slips.""")
 
 class SparkExtractor(Extractor):
     def __init__(self, api_key=None, endpoint=BASE_URL, model=MODEL,
-                 timeout=300):
-        self.api_key = api_key or os.environ.get("MODEL_API_KEY")
+                 timeout=300, temperature=0, attempts=ATTEMPTS):
+        self.api_key = api_key or resolve_secret("MODEL_API_KEY")
         self.endpoint = (endpoint or BASE_URL).rstrip("/")
         self.model = model
         self.timeout = timeout
+        self.temperature = temperature
+        self.attempts = attempts
+        self.stats = new_stats()
 
     def _post(self, payload):
         if not self.api_key:
             raise RuntimeError(
-                "Set MODEL_API_KEY (Meta Model API dashboard > API keys).")
-        req = urllib.request.Request(
-            f"{self.endpoint}/responses",
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Authorization": f"Bearer {self.api_key}",
-                     "Content-Type": "application/json"})
+                "Set MODEL_API_KEY (environment or project-root .env; "
+                "Meta Model API dashboard > API keys).")
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as r:
-                return json.load(r)
+            return post_json(
+                f"{self.endpoint}/responses", payload, self.api_key,
+                self.timeout, self.attempts,
+                on_response=lambda b, s: record_call(self.stats, b, s))
         except urllib.error.HTTPError as e:
             if e.code == 401:
                 raise RuntimeError(
@@ -134,6 +143,8 @@ class SparkExtractor(Extractor):
                                 "name": "ReceiptExtraction",
                                 "schema": load_schema()}},
         }
+        if self.temperature is not None:
+            payload["temperature"] = self.temperature
         parsed = None
         for _ in range(2):
             text = self._output_text(self._post(payload))

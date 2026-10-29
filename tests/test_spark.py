@@ -63,6 +63,7 @@ class TestSpark(unittest.TestCase):
         payload = json.loads(req.data)
         self.assertEqual(payload["model"], MODEL)
         self.assertFalse(payload["stream"])
+        self.assertEqual(payload["temperature"], 0)
         fmt = payload["text"]["format"]
         self.assertEqual(fmt["type"], "json_schema")
         self.assertIn("totals", fmt["schema"]["properties"])
@@ -72,6 +73,22 @@ class TestSpark(unittest.TestCase):
         for phrase in ("satang", "YYYY-MM-DD", "recompute", "ambiguous"):
             self.assertIn(phrase, PROMPT)
             self.assertIn(phrase, content[0]["text"])
+
+    def test_temperature_override(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            img = _write(os.path.join(tmp, "r.jpg"))
+            opener = _urlopen_ok(_doc(json.dumps(fresh())))
+            with mock.patch("ptl.adapters.spark.urllib.request.urlopen",
+                            opener):
+                SparkExtractor(api_key="k", temperature=1).extract(img)
+            (req,), _ = opener.call_args
+            self.assertEqual(json.loads(req.data)["temperature"], 1)
+            opener = _urlopen_ok(_doc(json.dumps(fresh())))
+            with mock.patch("ptl.adapters.spark.urllib.request.urlopen",
+                            opener):
+                SparkExtractor(api_key="k", temperature=None).extract(img)
+            (req,), _ = opener.call_args
+            self.assertNotIn("temperature", json.loads(req.data))
 
     def test_retry_then_success(self):
         ext = SparkExtractor(api_key="k")
@@ -157,13 +174,55 @@ class TestSpark(unittest.TestCase):
                 ext.extract(b"not-an-image")
 
     def test_missing_key_raises(self):
-        with mock.patch.dict(os.environ):
-            os.environ.pop("MODEL_API_KEY", None)
-            ext = SparkExtractor()
         with tempfile.TemporaryDirectory() as tmp:
             img = _write(os.path.join(tmp, "r.jpg"))
-            with self.assertRaises(RuntimeError):
+            with mock.patch.dict(os.environ), \
+                    mock.patch("os.getcwd", return_value=tmp):
+                os.environ.pop("MODEL_API_KEY", None)
+                ext = SparkExtractor()
+                with self.assertRaises(RuntimeError):
+                    ext.extract(img)
+
+    def test_dotenv_key_fallback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with open(os.path.join(tmp, ".env"), "w",
+                      encoding="utf-8") as f:
+                f.write("MODEL_API_KEY=from-dotenv\n")
+            with mock.patch.dict(os.environ), \
+                    mock.patch("os.getcwd", return_value=tmp):
+                os.environ.pop("MODEL_API_KEY", None)
+                self.assertEqual(SparkExtractor().api_key, "from-dotenv")
+
+    def test_transport_timeout_retried(self):
+        ext = SparkExtractor(api_key="k")
+        opener = mock.MagicMock(
+            side_effect=[TimeoutError("The read operation timed out"),
+                         _urlopen_ok(_doc(json.dumps(fresh())))()])
+        with tempfile.TemporaryDirectory() as tmp:
+            img = _write(os.path.join(tmp, "r.jpg"))
+            with mock.patch("ptl.adapters.spark.urllib.request.urlopen",
+                            opener), \
+                    mock.patch("ptl.adapters.base.sleep"):
+                doc, _ = ext.extract(img)
+        self.assertEqual(doc["totals"]["grand_total"], 10700)
+        self.assertEqual(opener.call_count, 2)
+
+    def test_stats_accumulate(self):
+        ext = SparkExtractor(api_key="k")
+        body = _doc(json.dumps(fresh()))
+        body["usage"] = {"input_tokens": 1200, "output_tokens": 300}
+        opener = mock.MagicMock(
+            side_effect=[_urlopen_ok(body)(), _urlopen_ok(body)()])
+        with tempfile.TemporaryDirectory() as tmp:
+            img = _write(os.path.join(tmp, "r.jpg"))
+            with mock.patch("ptl.adapters.spark.urllib.request.urlopen",
+                            opener):
                 ext.extract(img)
+                ext.extract(img)
+        self.assertEqual(ext.stats["calls"], 2)
+        self.assertEqual(ext.stats["input_tokens"], 2400)
+        self.assertEqual(ext.stats["output_tokens"], 600)
+        self.assertGreaterEqual(ext.stats["seconds"], 0)
 
     def test_auth_and_entitlement_errors(self):
         ext = SparkExtractor(api_key="k")

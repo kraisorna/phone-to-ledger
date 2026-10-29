@@ -85,13 +85,52 @@ class TestSam31(unittest.TestCase):
             Sam31Segmenter.boxes_from_text("here is your segmentation")
 
     def test_missing_key_raises(self):
-        with mock.patch.dict(os.environ):
-            os.environ.pop("MODEL_API_KEY", None)
-            seg = Sam31Segmenter()
         with tempfile.TemporaryDirectory() as tmp:
             img = _write(os.path.join(tmp, "r.jpg"))
-            with self.assertRaises(RuntimeError):
+            with mock.patch.dict(os.environ), \
+                    mock.patch("os.getcwd", return_value=tmp):
+                os.environ.pop("MODEL_API_KEY", None)
+                seg = Sam31Segmenter()
+                with self.assertRaises(RuntimeError):
+                    seg.segment(img)
+
+    def test_dotenv_key_fallback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with open(os.path.join(tmp, ".env"), "w",
+                      encoding="utf-8") as f:
+                f.write("MODEL_API_KEY=from-dotenv\n")
+            with mock.patch.dict(os.environ), \
+                    mock.patch("os.getcwd", return_value=tmp):
+                os.environ.pop("MODEL_API_KEY", None)
+                self.assertEqual(Sam31Segmenter().api_key, "from-dotenv")
+
+    def test_transport_timeout_retried(self):
+        seg = Sam31Segmenter(api_key="k")
+        opener = mock.MagicMock(
+            side_effect=[TimeoutError("The read operation timed out"),
+                         _urlopen_ok(_doc(TEXT_TWO))()])
+        with tempfile.TemporaryDirectory() as tmp:
+            img = _write(os.path.join(tmp, "r.jpg"), b"fake-jpeg-bytes")
+            with mock.patch("ptl.adapters.sam31.urllib.request.urlopen",
+                            opener), \
+                    mock.patch("ptl.adapters.base.sleep"):
+                crops = seg.segment(img)
+        self.assertEqual(len(crops), 2)
+        self.assertEqual(opener.call_count, 2)
+
+    def test_stats_accumulate(self):
+        seg = Sam31Segmenter(api_key="k")
+        body = _doc(TEXT_TWO)
+        body["usage"] = {"input_tokens": 500, "output_tokens": 50}
+        with tempfile.TemporaryDirectory() as tmp:
+            img = _write(os.path.join(tmp, "r.jpg"), b"fake-jpeg-bytes")
+            with mock.patch("ptl.adapters.sam31.urllib.request.urlopen",
+                            _urlopen_ok(body)):
                 seg.segment(img)
+        self.assertEqual(seg.stats["calls"], 1)
+        self.assertEqual(seg.stats["input_tokens"], 500)
+        self.assertEqual(seg.stats["output_tokens"], 50)
+        self.assertGreaterEqual(seg.stats["seconds"], 0)
 
     def test_auth_and_entitlement_errors(self):
         seg = Sam31Segmenter(api_key="k")

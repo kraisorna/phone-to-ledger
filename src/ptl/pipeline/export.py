@@ -10,6 +10,7 @@ never merged. ABB kept, marked unclaimable.
 """
 import csv
 import io
+import os
 
 from ..money import to_thb
 
@@ -51,6 +52,32 @@ def to_csv(rows):
     for r in rows:
         w.writerow({c: r.get(c, "") for c in COLUMNS})
     return buf.getvalue()
+
+
+def append_csv(path, rows):
+    """Append rows to a ledger CSV, creating it with a header if missing.
+
+    Refuses with ValueError when the existing file's header is not
+    exactly COLUMNS, so a ledger is never polluted by a foreign file.
+    Returns path.
+    """
+    body = io.StringIO()
+    w = csv.DictWriter(body, fieldnames=COLUMNS)
+    for r in rows:
+        w.writerow({c: r.get(c, "") for c in COLUMNS})
+    existing = ""
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as f:
+            existing = f.read()
+    if not existing:
+        prefix = ",".join(COLUMNS) + "\r\n"
+    else:
+        if existing.splitlines()[0] != ",".join(COLUMNS):
+            raise ValueError(f"{path}: header mismatch; refusing to append")
+        prefix = "" if existing.endswith("\n") else "\n"
+    with open(path, "a", encoding="utf-8", newline="") as f:
+        f.write(prefix + body.getvalue())
+    return path
 
 
 def to_xlsx(rows, path):

@@ -9,8 +9,8 @@ import os
 import tempfile
 import unittest
 
-from eval.run_eval import run_eval
-from eval.score import score_doc
+from ptl.eval.run_eval import run_eval
+from ptl.eval.score import score_doc
 from ptl.pipeline.triage import triage
 from ptl.pipeline.validate_rules import validate
 from ptl.schema import check_structure
@@ -34,6 +34,14 @@ class TestSeedStructure(unittest.TestCase):
             with self.subTest(seed=name):
                 doc = fresh_seed(name)
                 self.assertEqual(json.loads(json.dumps(doc)), doc)
+
+    def test_no_placeholder_filler(self):
+        # Seeds double as eval gold: transcribed values only, never
+        # "(name not transcribed)" style filler with fabricated splits.
+        for name in SEEDS:
+            with self.subTest(seed=name):
+                text = json.dumps(fresh_seed(name), ensure_ascii=False)
+                self.assertNotIn("not transcribed", text)
 
 
 class TestSeedRules(unittest.TestCase):

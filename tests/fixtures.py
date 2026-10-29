@@ -67,12 +67,12 @@ def fresh():
 # S1-S6: faithful seed fixtures from 02-ocr-edge-cases.md / 05-ocr-pipeline-plan.md
 #
 # Documented values (merchant, totals, dates, VAT figures, POS ids, masks,
-# emails, QR purpose) are verbatim from the edge-case catalogue. S1 and S5
-# were additionally transcribed from the real sample images in
+# emails, QR purpose) are verbatim from the edge-case catalogue. S1-S6 were
+# additionally transcribed from the real sample images in
 # ../rapee/docs/samples/ (real tax IDs, branch codes, receipt numbers, line
-# names — checksums verified). Remaining filler is marked inline: S2-S4/S6
-# line splits (only totals documented there), synthetic checksum-valid tax
-# IDs, and omitted document_number where not transcribed.
+# names — checksums verified). S2 keeps document_number absent (no labelled
+# receipt number on the slip; the bottom-line "16811002 3499" is a store /
+# terminal / sequence stamp, and the R10 fuzzy-key pin depends on this).
 # S1_GOLDEN above is an older synthetic fixture kept for the original tests.
 # S7-S11 cannot be fixtured: the docs say "Details still to be written up".
 # ---------------------------------------------------------------------------
@@ -158,24 +158,26 @@ S2_LOTUS = {
                            "anchor_used": None},
     },
     "issuer": {
-        "legal_name": "CP Axtra",
+        "legal_name": "CP AXTRA",
         "brand_name": "Lotus's",
-        "branch_code": None,
-        "tax_id": "1111111111119",  # synthetic, checksum-valid
+        "branch_name": "ประชาราษฎร์บำเพ็ญ",
+        "branch_code": "1681",
+        "tax_id": "0107567000414",  # real, checksum-verified
         "vat_registered": True,
     },
     "line_items": [
-        {"line_number": 1, "description": "คัชชี่ผลไม้รวม125ก.",
-         "description_raw": "คัชชี่ผลไม้รวม125ก.X4",
-         "line_total": 4000, "quantity": 4, "quantity_source": "embedded_in_name",
-         "unit_price": 1000, "supply_type": "goods", "vat_flag": "V"},
-        {"line_number": 2, "description": "Item (name not transcribed)",
-         "line_total": 4900, "quantity": 1, "quantity_source": "assumed",
+        {"line_number": 1, "description": "ดัชชี่ผลไม้รวม125ก.",
+         "description_raw": "ดัชชี่ผลไม้รวม125ก.X4",
+         "line_total": 4900, "quantity": 4, "quantity_source": "embedded_in_name",
          "supply_type": "goods", "vat_flag": "V"},  # printed "49.00V"
+        {"line_number": 2, "description": "โลตัส ไอศกรีม ช็อกโกชิพ",
+         "description_raw": "โลตัส ไอศกรีม ช็อกโกชิพ",
+         "line_total": 4000, "quantity": 1, "quantity_source": "assumed",
+         "supply_type": "goods", "vat_flag": "V"},  # printed "40.00V"
     ],
     "payments": [
         {"amount": 8900, "method": "credit_card",
-         "method_raw": "Lotus's Mastercard",
+         "method_raw": "LOTUSS MC",
          "card_mask": "559233XXXXXX3717", "card_mask_position": "middle"},
     ],
     "totals": {
@@ -201,6 +203,7 @@ S3_JONES = {
     "document_type": "combined",
     "form": "abbreviated",
     "can_claim_input_vat": False,
+    "document_number": "JS001/ESP014867",
     "status": "paid",
     "dates": {
         "issue_date": "2026-08-28",
@@ -212,8 +215,9 @@ S3_JONES = {
     "issuer": {
         "legal_name": "Jones Salad",
         "brand_name": "Jones Salad",
-        "branch_code": None,
-        "tax_id": "2222222222227",  # synthetic, checksum-valid
+        "branch_name": "Esplanade",
+        "branch_code": "00001",
+        "tax_id": "0105559141754",  # real, checksum-verified
         "vat_registered": True,
         "email": "U1346493@noemail.longdo.com",
         "email_is_placeholder": True,
@@ -221,12 +225,14 @@ S3_JONES = {
     "line_items": [
         {"line_number": 1, "description": "** Dine In **", "line_total": 0,
          "is_section_header": True},
-        {"line_number": 2, "description": "Item 1 (name not transcribed)",
-         "line_total": 10400, "quantity": 1, "quantity_source": "assumed",
-         "supply_type": "goods", "vat_flag": "V"},
-        {"line_number": 3, "description": "Item 2 (name not transcribed)",
-         "line_total": 10400, "quantity": 1, "quantity_source": "assumed",
-         "supply_type": "goods", "vat_flag": "V"},
+        {"line_number": 2, "description": "สลัดสวนคุณพ่อ (L)",
+         "description_raw": "สลัดสวนคุณพ่อ (L)",
+         "line_total": 9900, "quantity": 1, "quantity_source": "column",
+         "supply_type": "goods", "vat_flag": "unknown"},
+        {"line_number": 3, "description": "แรปทูน่าคอร์น",
+         "description_raw": "แรปทูน่าคอร์น",
+         "line_total": 10900, "quantity": 1, "quantity_source": "column",
+         "supply_type": "goods", "vat_flag": "unknown"},
     ],
     "payments": [
         {"amount": 20800, "method": "bank_qr",
@@ -258,6 +264,7 @@ S4_STARBUCKS = {
     "document_type": "combined",
     "form": "abbreviated",
     "can_claim_input_vat": False,
+    "document_number": "260828-01-07563",
     "status": "paid",
     "dates": {
         "issue_date": None,  # unresolved: no anchor for the 2-digit year
@@ -266,20 +273,22 @@ S4_STARBUCKS = {
                            "anchor_used": None},
     },
     "issuer": {
-        "legal_name": "Starbucks",
+        "legal_name": "Starbucks Coffee",
         "brand_name": "Starbucks",
-        "branch_code": None,
-        "tax_id": "3333333333335",  # synthetic, checksum-valid
+        "branch_name": "Siam Future Esplanade",
+        "branch_code": "14098",
+        "tax_id": "0105541008688",  # real, checksum-verified
         "vat_registered": True,
     },
     "line_items": [
-        {"line_number": 1, "description": "CHOC DONUT GOG",
-         "description_raw": "CHOC DONUT GOG",  # truncated by the printer
-         "line_total": 4500, "quantity": 1, "quantity_source": "assumed",
-         "supply_type": "goods", "vat_flag": "V"},
-        {"line_number": 2, "description": "Item (name not transcribed)",
-         "line_total": 3000, "quantity": 1, "quantity_source": "assumed",
-         "supply_type": "goods", "vat_flag": "V"},
+        {"line_number": 1, "description": "NEW SBUX WATER",
+         "description_raw": "NEW SBUX WATER",
+         "line_total": 2500, "quantity": 1, "quantity_source": "column",
+         "supply_type": "goods", "vat_flag": "unknown"},
+        {"line_number": 2, "description": "CHOC DONUT 60G",
+         "description_raw": "CHOC DONUT 60G",  # 60G weight, not GOG
+         "line_total": 5000, "quantity": 1, "quantity_source": "column",
+         "supply_type": "goods", "vat_flag": "unknown"},
     ],
     "payments": [
         {"amount": 7500, "method": "stored_value_redeem",
@@ -325,8 +334,8 @@ S5_SEVEN = {
         "vat_registered": True,
     },
     "line_items": [
-        {"line_number": 1, "description": "ขนมพาสฯเมจิ 450",
-         "description_raw": "ขนมพาสฯเมจิ 450",  # truncated by the printer
+        {"line_number": 1, "description": "นมพาสฯเมจิ 450",
+         "description_raw": "Hนมพาสฯเมจิ 450",  # stray H glyph on the print
          "line_total": 2825, "quantity": 1, "quantity_source": "column",
          "supply_type": "goods", "vat_flag": "V"},
     ],
@@ -343,7 +352,7 @@ S5_SEVEN = {
     "vat_rate_bp": 700,
     "currency": "THB",
     # condition: faded thermal (tracked via eval faded_ids, no schema field)
-    # POS area too faded to transcribe reliably; omitted, not guessed.
+    "pos_identifier": "E020100002A0368",
     "field_confidence": {"totals.grand_total": 0.93, "totals.vat_amount": 0.9,
                          "dates.issue_date": 0.95, "issuer.tax_id": 0.99,
                          "document_number": 0.9},
@@ -358,6 +367,7 @@ S6_ETOILE = {
     "document_type": "combined",
     "form": "abbreviated",
     "can_claim_input_vat": False,
+    "document_number": "0196768",
     "status": "paid",
     "dates": {
         "issue_date": "2026-08-29",
@@ -370,16 +380,14 @@ S6_ETOILE = {
         "brand_name": "Saint Etoile",
         "branch_name": "Central Westville",
         "branch_code": "00198",
-        "tax_id": "5555555555551",  # synthetic, checksum-valid
+        "tax_id": "0105527027239",  # real, checksum-verified
         "vat_registered": True,
     },
     "line_items": [
-        {"line_number": 1, "description": "Item 1 (name not transcribed)",
-         "line_total": 2000, "quantity": 1, "quantity_source": "assumed",
+        {"line_number": 1, "description": "โดนัทช็อกโกแลต",
+         "description_raw": "โดนัทช็อกโกแลต",
+         "line_total": 3200, "quantity": 1, "quantity_source": "column",
          "supply_type": "goods", "vat_flag": "V"},
-        {"line_number": 2, "description": "Item 2 (name not transcribed)",
-         "line_total": 1200, "quantity": 1, "quantity_source": "assumed",
-         "supply_type": "goods", "vat_flag": "unknown"},
     ],
     "payments": [
         {"amount": 3200, "method": "truemoney_wallet",

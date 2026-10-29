@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from contextlib import redirect_stdout
 
-from eval.score import aggregate, score_doc
+from ptl.eval.score import aggregate, score_doc
 from ptl.api.cli import cmd_eval
 from tests.fixtures import fresh
 
@@ -34,6 +34,16 @@ class TestEval(unittest.TestCase):
         self.assertEqual(rep["overall"]["doc_all_correct"], 1)
         self.assertEqual(rep["faded"]["n"], 1)
         self.assertEqual(rep["faded"]["doc_all_correct"], 0)
+
+    def test_eval_ships_inside_package(self):
+        import ptl
+        import ptl.eval.run_eval
+        import ptl.eval.score
+        pkg = os.path.dirname(ptl.__file__)
+        for mod in (ptl.eval.run_eval, ptl.eval.score):
+            self.assertTrue(
+                mod.__file__.startswith(pkg + os.sep),
+                f"{mod.__name__} resolves outside the ptl package")
 
     def test_cmd_eval_runs(self):
         with tempfile.TemporaryDirectory() as tmp:

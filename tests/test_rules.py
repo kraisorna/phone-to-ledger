@@ -1,5 +1,6 @@
 import unittest
 
+from ptl.pipeline.triage import triage
 from ptl.pipeline.validate_rules import (thai_tax_id_check, validate,
                                           HARD_RULES)
 from tests.fixtures import fresh
@@ -96,6 +97,14 @@ class TestRules(unittest.TestCase):
         v = validate(d)
         self.assertFalse(v["rules"]["R11"]["pass"])
 
+    def test_r11_four_digit_branch_ok(self):
+        # CP Axtra/Lotus's slips print 4-digit store codes (S2 "1681").
+        for code in ("1681", "00031"):
+            d = fresh()
+            d["issuer"]["branch_code"] = code
+            v = validate(d)
+            self.assertTrue(v["rules"]["R11"]["pass"])
+
     def test_r12_low_confidence(self):
         d = fresh()
         d["field_confidence"]["totals.vat_amount"] = 0.1
@@ -104,6 +113,32 @@ class TestRules(unittest.TestCase):
 
     def test_hard_rules_set(self):
         self.assertEqual(HARD_RULES, {"R1", "R2", "R3", "R4", "R5", "R6"})
+
+    def test_r13_empty_extraction_reviews(self):
+        v = validate({})
+        self.assertFalse(v["rules"]["R13"]["pass"])
+        self.assertTrue(v["requires_human_review"])
+        self.assertEqual(v["hard_failed"], [])  # soft: review, not block
+        self.assertEqual(triage({}, v)["decision"], "needs_review")
+
+    def test_r13_each_prong(self):
+        def base():
+            return {"totals": {"grand_total": 10700},
+                    "line_items": [{"line_number": 1, "description": "x",
+                                    "line_total": 10700}],
+                    "dates": {"issue_date": "2026-08-27"}}
+        cases = {"zero grand": {"totals": {"grand_total": 0}},
+                 "no lines": {"line_items": []},
+                 "no date": {"dates": {}}}
+        for name, patch in cases.items():
+            with self.subTest(name):
+                doc = base()
+                doc.update(patch)
+                v = validate(doc)
+                failed = [r for r, res in v["rules"].items()
+                          if not res["pass"]]
+                self.assertEqual(failed, ["R13"])
+                self.assertTrue(v["requires_human_review"])
 
 
 if __name__ == "__main__":
