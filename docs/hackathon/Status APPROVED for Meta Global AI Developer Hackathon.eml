@@ -1,0 +1,330 @@
+Delivered-To: kraisornar@gmail.com
+Received: by 2002:ac9:528b:0:b0:673:2e83:fca with SMTP id k11csp332498ocb;
+        Sun, 25 Oct 2026 17:12:21 -0700 (PDT)
+X-Received: by 2002:a05:622a:4d3:b0:535:a5fb:67fc with SMTP id d75a77b69052e-5383b7876demr78725121cf.72.1792973540998;
+        Sun, 25 Oct 2026 17:12:20 -0700 (PDT)
+ARC-Seal: i=1; a=rsa-sha256; t=1792973540; cv=none;
+        d=google.com; s=arc-20260327;
+        b=ludaUAN15oBkoC3WJrEUIFwb1DN5JOrggP8rB1cLtqZPW0ZViX+apYIDSvtyEPHMEM
+         xQ2DY9hXfrklpp+Mw3Bd2v0TAud9CHgAflPo00tSenQFCaAeykKScKaeCmp+u2/qVPsU
+         w23f9RtVdjplX7sDS08RS5YUj9C0v4kni8wkfruaTx9dM3ig7d1IjNirr3X8XqqIGWr7
+         vHl30iWHoo75YyrabX4SA1FdPnOUY41s6EHGX01oGvjeNzinvlAnN4kUEzlx2KQ1dWNZ
+         Pbf+iGEz5Ha8eeJkFj5RZPAtPTIC4DoYZswnMSVZYlKX3j5ECdgQ/cMR1i7xM3WeSOsk
+         kVdQ==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=google.com; s=arc-20260327;
+        h=feedback-id:mime-version:date:message-id:subject:to:from
+         :dkim-signature:dkim-signature;
+        bh=3SCX5ZIbleSrCPk2aXr8oMSkRM2EfrdqHsXc6v46dsA=;
+        fh=JXHic9qiWJQhCjjec1XCYFkCz40YUuHyM63TzXqUEcg=;
+        b=j2nVONz/jO4QvdK0WAXnwL3tunjhGobkoRGUUYYWv+EcpgZSDj4Xc0C2VLqY56JCE1
+         viM7aBdZUwceZkSvAcCmfmozp4hUxgfMCqVWTKTmHduf5II2zX+qQLkJCZ4ykNOXc4rE
+         nYxW/9kCPPmulBEjx/Fc55iSeKip14bsKu6sn4q0PmwdXI/1yBepEeU3VaEG8D/+HZdf
+         LjSISVKX4DB/xzCgkyK011jGrzo/YeW182msuK9y9gGBt73L8ZgLzeFJ1z52L8UFJQr8
+         2bCRISEt6TpIhG8AYlOHn/Y2OIi7KAkdFBR7IVtnYy20SG0Yp07emNOCKus7EKDeVoSD
+         NHJg==;
+        dara=google.com
+ARC-Authentication-Results: i=1; mx.google.com;
+       dkim=pass header.i=@platform.cerebralvalley.ai header.s=resend header.b="d/I3X+Ah";
+       dkim=pass header.i=@amazonses.com header.s=224i4yxa5dv7c2xz3womw6peuasteono header.b=QDdFxGp1;
+       spf=pass (google.com: domain of 010001a1758d0c9f-56b2e5d9-240d-4f1c-a540-bf660f12ca25-000000@send.platform.cerebralvalley.ai designates 54.240.9.23 as permitted sender) smtp.mailfrom=010001a1758d0c9f-56b2e5d9-240d-4f1c-a540-bf660f12ca25-000000@send.platform.cerebralvalley.ai;
+       dmarc=pass (p=NONE sp=NONE dis=NONE) header.from=cerebralvalley.ai
+Return-Path: <010001a1758d0c9f-56b2e5d9-240d-4f1c-a540-bf660f12ca25-000000@send.platform.cerebralvalley.ai>
+Received: from a9-23.smtp-out.amazonses.com (a9-23.smtp-out.amazonses.com. [54.240.9.23])
+        by mx.google.com with ESMTPS id d75a77b69052e-53838f2be76si51212261cf.45.2026.10.25.17.12.20
+        for <kraisornar@gmail.com>
+        (version=TLS1_3 cipher=TLS_AES_128_GCM_SHA256 bits=128/128);
+        Sun, 25 Oct 2026 17:12:20 -0700 (PDT)
+Received-SPF: pass (google.com: domain of 010001a1758d0c9f-56b2e5d9-240d-4f1c-a540-bf660f12ca25-000000@send.platform.cerebralvalley.ai designates 54.240.9.23 as permitted sender) client-ip=54.240.9.23;
+Authentication-Results: mx.google.com;
+       dkim=pass header.i=@platform.cerebralvalley.ai header.s=resend header.b="d/I3X+Ah";
+       dkim=pass header.i=@amazonses.com header.s=224i4yxa5dv7c2xz3womw6peuasteono header.b=QDdFxGp1;
+       spf=pass (google.com: domain of 010001a1758d0c9f-56b2e5d9-240d-4f1c-a540-bf660f12ca25-000000@send.platform.cerebralvalley.ai designates 54.240.9.23 as permitted sender) smtp.mailfrom=010001a1758d0c9f-56b2e5d9-240d-4f1c-a540-bf660f12ca25-000000@send.platform.cerebralvalley.ai;
+       dmarc=pass (p=NONE sp=NONE dis=NONE) header.from=cerebralvalley.ai
+DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/simple; s=resend;
+	d=platform.cerebralvalley.ai; t=1792973540;
+	h=From:To:Subject:Message-ID:Date:MIME-Version:Content-Type;
+	bh=3SCX5ZIbleSrCPk2aXr8oMSkRM2EfrdqHsXc6v46dsA=;
+	b=d/I3X+AhpSiV3Smp+DzrWle5mFdIvibwAXv7IMBu4lswuNqOV+NPInjbVedb+rC4
+	iQpSUGn/Y3F8sb4yBSm4CFcto44vqyVK8VV1wHwo8w0CWh7FBlerMexY4u/U2/tNcqw
+	PSvN3kE9Ip94VLJWokW91WPmqwEDOOlr7PQlXFPw=
+DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/simple;
+	s=224i4yxa5dv7c2xz3womw6peuasteono; d=amazonses.com; t=1792973540;
+	h=From:To:Subject:Message-ID:Date:MIME-Version:Content-Type:Feedback-ID;
+	bh=3SCX5ZIbleSrCPk2aXr8oMSkRM2EfrdqHsXc6v46dsA=;
+	b=QDdFxGp1g/kJuL93ZZ/QxOBaEOpBcq9XtXCG3i3YVEjv6Rgumj6jEJQe5AdpHQzb
+	PZXk9hUfD6CvHeZ5QylgYmdhVYyxZZ4wuMp6shj8zSsSNktuyWI8tXKZzn0CuMjg2IJ
+	h8QV8wSxgtocqGhsJ6y+rdw7IbD+reEjADLI2UHg=
+From: Cerebral Valley Events <78e32764-9651-4942-b1eb-401af6a3209@platform.cerebralvalley.ai>
+To: kraisornar@gmail.com
+Subject: Status APPROVED for Meta Global AI Developer Hackathon
+Message-ID: <010001a1758d0c9f-56b2e5d9-240d-4f1c-a540-bf660f12ca25-000000@email.amazonses.com>
+Date: Mon, 26 Oct 2026 00:12:20 +0000
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="--_NmP-241d09a9612d392b-Part_1"
+Feedback-ID: :1.us-east-1.WjP8FNYwXcw8fy2x3QOBThuui3HMxtkHaBBONlMQrLIC/KPEcEFN2gQGwz0XuIANkAYZ9YMGYlc/N3wdyIDkEp2sR2MQoCvUynoCASOgyKJht5eArKINOuKAkar/KsYijHhpbJOgk9R35okPBICrf5ckNCeBzk6U1wOMpeApJyw=:1.us-east-1.epbACCJLarUaEI78XZoGREJ9LamRjxMH5pM2kZb64rA=:AmazonSES
+X-SES-Outgoing: 2026.10.26-54.240.9.23
+
+----_NmP-241d09a9612d392b-Part_1
+Content-Type: multipart/alternative;
+ boundary="--_NmP-241d09a9612d392b-Part_2"
+
+----_NmP-241d09a9612d392b-Part_2
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+Event Status Update
+
+Your status for Meta Global AI Developer Hackathon has=
+ been updated to APPROVED!
+
+View Event https://cerebralvalley.=
+ai/e/meta-ai-developer-hackathon?utm_source=3Devent-status-change&utm_mediu=
+m=3Demail
+
+----------------------------------------
+
+Meta Global AI Developer Hackathon
+
+Dates
+
+Monday Oct 26 12:00 PM - =
+Wednesday Nov 4 9:00 PM (GMT-5)
+
+Location
+
+Remote https://maps.google.com/?=
+q=3DRemote
+
+
+
+Add to your calendar:
+
+Google Calendar https://calendar.=
+google.com/calendar/render?action=3DTEMPLATE&text=3DMeta%20Global%20AI%20De=
+veloper%20Hackathon&location=3DRemote&dates=3D20261026T120000%2F20261104T21=
+0000&ctz=3DEST
+
+Outlook Calendar https://outlook.live.=
+com/calendar/0/deeplink/compose?path=3D%2Fcalendar%2Faction%2Fcompose&rru=
+=3Daddevent&subject=3DMeta%20Global%20AI%20Developer%20Hackathon&location=
+=3DRemote&startdt=3D2026-10-26T17%3A00%3A00.000Z&enddt=3D2026-11-05T02%3A00=
+%3A00.000Z
+
+----------------------------------------
+
+AI's global ecosystem
+
+X https://cerebralvalley.ai/x =C2=B7 LinkedIn https://cerebralvalley.=
+ai/linkedin =C2=B7 Careers https://cerebralvalley.ai/careers =C2=B7 =
+unsubscribe https://cerebralvalley.ai/profile?open=3Dtrue&tab=3Dnotificatio=
+ns
+----_NmP-241d09a9612d392b-Part_2
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.=
+w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html dir=3D"ltr" =
+lang=3D"en"><head><link rel=3D"preload" as=3D"image" href=3D"https://cdn.=
+cerebralvalley.ai/cv-logo-black-0779a4da5e3024dd.png"/><link =
+rel=3D"preload" as=3D"image" href=3D"https://cdn.cerebralvalley.=
+ai/thumbnail-2026-10-13T16:12:19_166Z-upload"/><meta content=3D"text/html; =
+charset=3DUTF-8" http-equiv=3D"Content-Type"/><meta =
+name=3D"x-apple-disable-message-reformatting"/></head><body><!--$--><div =
+style=3D"display:none;overflow:hidden;line-height:1px;opacity:0;max-height:=
+0;max-width:0" data-skip-in-text=3D"true">Your status for Meta Global AI =
+Developer Hackathon is now APPROVED!<div>=C2=A0=E2=80=8C=E2=80=8B=
+=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=
+=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=
+=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=
+=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=
+=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=
+=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=
+=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=
+=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=
+=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=
+=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=
+=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=
+=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=
+=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=
+=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=
+=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=
+=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=
+=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=
+=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=
+=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=
+=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=
+=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=
+=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=
+=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=
+=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=
+=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=
+=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=
+=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=
+=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=
+=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=
+=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=
+=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=
+=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=
+=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=
+=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=
+=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=
+=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=
+=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=
+=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=
+=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=
+=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=
+=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=
+=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=
+=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=
+=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=
+=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=
+=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=
+=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=
+=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=
+=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=
+=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=
+=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=
+=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=
+=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=
+=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=
+=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=
+=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=
+=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=
+=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=
+=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=
+=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=
+=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=
+=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=
+=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=
+=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=
+=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=
+=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=
+=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=
+=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=
+=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=
+=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=
+=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=
+=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=
+=E2=80=8F=EF=BB=BF</div></div><table border=3D"0" width=3D"100%" =
+cellPadding=3D"0" cellSpacing=3D"0" role=3D"presentation" =
+align=3D"center"><tbody><tr><td style=3D"margin:0;padding:0 =
+8px;font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe UI&quot;,=
+Roboto,Oxygen-Sans,Ubuntu,Cantarell,&quot;Helvetica Neue&quot;,=
+sans-serif"><table align=3D"center" width=3D"100%" border=3D"0" =
+cellPadding=3D"0" cellSpacing=3D"0" role=3D"presentation" =
+style=3D"max-width:560px;margin:0 auto;padding:20px 0 48px"><tbody><tr =
+style=3D"width:100%"><td><img alt=3D"CV Logo" height=3D"46" =
+src=3D"https://cdn.cerebralvalley.ai/cv-logo-black-0779a4da5e3024dd.png" =
+style=3D"display:block;outline:none;border:none;text-decoration:none;width:=
+46px;height:46px;padding:0 2px;margin:0 0 24px" width=3D"46"/><p =
+style=3D"font-size:24px;line-height:1.3;letter-spacing:-0.=
+5px;font-weight:400;color:#000;margin:18px 0 14px;margin-top:18px;margin-ri=
+ght:0;margin-bottom:14px;margin-left:0">Event Status Update</p><p =
+style=3D"font-size:15px;line-height:1.4;margin:12px =
+0;color:#000;margin-top:12px;margin-right:0;margin-bottom:12px;margin-left:=
+0">Your status for Meta Global AI Developer Hackathon has been updated to =
+APPROVED!</p><a href=3D"https://cerebralvalley.ai/e/meta-ai-developer-hacka=
+thon?utm_source=3Devent-status-change&amp;utm_medium=3Demail" =
+style=3D"line-height:100%;text-decoration:none;display:block;max-width:100%=
+;mso-padding-alt:0px;background-color:#000;border-radius:8px;font-weight:50=
+0;color:#fff;font-size:15px;text-align:center;padding:14px =
+23px;margin-top:32px;padding-top:14px;padding-right:23px;padding-bottom:14p=
+x;padding-left:23px" target=3D"_blank"><span><!--[if mso]><i =
+style=3D"mso-font-width:383.33333333333337%;mso-text-raise:21" =
+hidden>&#8202;&#8202;&#8202;</i><![endif]--></span><span =
+style=3D"max-width:100%;display:inline-block;line-height:120%;mso-padding-a=
+lt:0px;mso-text-raise:10.5px">View Event</span><span><!--[if mso]><i =
+style=3D"mso-font-width:383.33333333333337%" hidden>&#8202;&#8202;&#8202;&#=
+8203;</i><![endif]--></span></a><hr style=3D"width:100%;border:none;border-=
+top:1px solid #eaeaea;border-color:#dfe1e4;margin:42px 0 26px"/><table =
+align=3D"center" width=3D"100%" border=3D"0" cellPadding=3D"0" =
+cellSpacing=3D"0" role=3D"presentation" style=3D"margin:42px 0 =
+42px"><tbody><tr><td><p style=3D"font-size:24px;line-height:1.=
+3;letter-spacing:-0.5px;font-weight:400;color:#000;margin:0 0 =
+14px;margin-top:0;margin-right:0;margin-bottom:14px;margin-left:0">Meta =
+Global AI Developer Hackathon</p><table align=3D"center" width=3D"100%" =
+border=3D"0" cellPadding=3D"0" cellSpacing=3D"0" role=3D"presentation" =
+style=3D"margin-bottom:14px"><tbody style=3D"width:100%"><tr =
+style=3D"width:100%"><td data-id=3D"__react-email-column"><p =
+style=3D"font-size:14px;line-height:24px;font-weight:600;color:#000;margin:=
+0 0 4px;margin-top:0;margin-right:0;margin-bottom:4px;margin-left:0">Dates<=
+/p><p style=3D"font-size:16px;line-height:24px;color:#1F2937;margin:0;margi=
+n-top:0;margin-bottom:0;margin-left:0;margin-right:0">Monday Oct 26<!-- -->=
+ <!-- -->12:00 PM<!-- --> - <!-- -->Wednesday Nov 4<!-- --> <!-- -->9:00 =
+PM<!-- --> (<!-- -->GMT-5<!-- -->)</p></td></tr></tbody></table><table =
+align=3D"center" width=3D"100%" border=3D"0" cellPadding=3D"0" =
+cellSpacing=3D"0" role=3D"presentation" style=3D"margin-bottom:14px"><tbody=
+ style=3D"width:100%"><tr style=3D"width:100%"><td data-id=3D"__react-email=
+-column"><p style=3D"font-size:14px;line-height:24px;font-weight:600;color:=
+#000;margin:0 0 4px;margin-top:0;margin-right:0;margin-bottom:4px;margin-le=
+ft:0">Location</p><a href=3D"https://maps.google.com/?q=3DRemote" =
+style=3D"color:#3498db;text-decoration-line:none;text-decoration:underline"=
+ target=3D"_blank">Remote</a></td></tr></tbody></table><table =
+align=3D"center" width=3D"100%" border=3D"0" cellPadding=3D"0" =
+cellSpacing=3D"0" role=3D"presentation" style=3D"margin-top:24px;margin-bot=
+tom:24px"><tbody><tr><td><img alt=3D"Meta Global AI Developer Hackathon =
+poster image" src=3D"https://cdn.cerebralvalley.ai/thumbnail-2026-10-13T16:=
+12:19_166Z-upload" style=3D"display:block;outline:none;border:none;text-dec=
+oration:none;width:100%;max-width:600px;height:auto;border-radius:8px"/></t=
+d></tr></tbody></table><table align=3D"center" width=3D"100%" border=3D"0" =
+cellPadding=3D"0" cellSpacing=3D"0" role=3D"presentation" =
+style=3D"margin-top:24px"><tbody><tr><td><p style=3D"font-size:14px;line-he=
+ight:24px;font-weight:600;color:#000;margin:0 0 4px;margin-top:0;margin-rig=
+ht:0;margin-bottom:4px;margin-left:0">Add to your calendar:</p><table =
+align=3D"center" width=3D"100%" border=3D"0" cellPadding=3D"0" =
+cellSpacing=3D"0" role=3D"presentation" style=3D"margin-top:8px"><tbody =
+style=3D"width:100%"><tr style=3D"width:100%"><td data-id=3D"__react-email-=
+column"><a href=3D"https://calendar.google.com/calendar/render?=
+action=3DTEMPLATE&amp;text=3DMeta%20Global%20AI%20Developer%20Hackathon&amp=
+;location=3DRemote&amp;dates=3D20261026T120000%2F20261104T210000&amp;ctz=3D=
+EST" style=3D"color:#3498db;text-decoration-line:none;text-decoration:under=
+line" target=3D"_blank">Google Calendar</a></td></tr></tbody></table><table=
+ align=3D"center" width=3D"100%" border=3D"0" cellPadding=3D"0" =
+cellSpacing=3D"0" role=3D"presentation" style=3D"margin-top:8px"><tbody =
+style=3D"width:100%"><tr style=3D"width:100%"><td data-id=3D"__react-email-=
+column"><a href=3D"https://outlook.live.com/calendar/0/deeplink/compose?=
+path=3D%2Fcalendar%2Faction%2Fcompose&amp;rru=3Daddevent&amp;subject=3DMeta=
+%20Global%20AI%20Developer%20Hackathon&amp;location=3DRemote&amp;startdt=3D=
+2026-10-26T17%3A00%3A00.000Z&amp;enddt=3D2026-11-05T02%3A00%3A00.000Z" =
+style=3D"color:#3498db;text-decoration-line:none;text-decoration:underline"=
+ target=3D"_blank">Outlook Calendar</a></td></tr></tbody></table></td></tr>=
+</tbody></table></td></tr></tbody></table><hr style=3D"width:100%;border:no=
+ne;border-top:1px solid #eaeaea;border-color:#E7E8EA;margin:32px 0 =
+24px"/><p style=3D"font-size:15px;line-height:21px;font-family:Inter, Arial=
+, Helvetica, sans-serif;font-weight:400;letter-spacing:0;color:#686C72;marg=
+in:0 0 8px;margin-bottom:12px;margin-top:0;margin-right:0;margin-left:0">AI=
+&#x27;s global ecosystem</p><p style=3D"font-size:13px;line-height:18.=
+2px;font-family:Inter, Arial, Helvetica, sans-serif;font-weight:400;letter-=
+spacing:0;color:#686C72;margin:0 0 8px;margin-top:0;margin-right:0;margin-b=
+ottom:8px;margin-left:0"><a href=3D"https://cerebralvalley.ai/x" =
+style=3D"color:#006CED;text-decoration-line:none;text-decoration:underline;=
+text-underline-offset:3px" target=3D"_blank">X</a> =C2=B7 <a =
+href=3D"https://cerebralvalley.ai/linkedin" style=3D"color:#006CED;text-dec=
+oration-line:none;text-decoration:underline;text-underline-offset:3px" =
+target=3D"_blank">LinkedIn</a> =C2=B7 <a href=3D"https://cerebralvalley.=
+ai/careers" style=3D"color:#006CED;text-decoration-line:none;text-decoratio=
+n:underline;text-underline-offset:3px" target=3D"_blank">Careers</a> =C2=B7=
+ <a href=3D"https://cerebralvalley.ai/profile?open=3Dtrue&amp;tab=3Dnotific=
+ations" style=3D"color:#006CED;text-decoration-line:none;text-decoration:un=
+derline;text-underline-offset:3px" target=3D"_blank">unsubscribe</a></p></t=
+d></tr></tbody></table></td></tr></tbody></table><!--7--><!=
+--/$--></body></html>
+----_NmP-241d09a9612d392b-Part_2--
+
+----_NmP-241d09a9612d392b-Part_1
+Content-Type: text/calendar; name=invite.ics
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename=invite.ics
+
+QkVHSU46VkNBTEVOREFSDQpWRVJTSU9OOjIuMA0KUFJPRElEOi0vL0NlcmVicmFsIFZhbGxleS8v
+RXZlbnRzIENhbGVuZGFyLy9FTg0KQ0FMU0NBTEU6R1JFR09SSUFODQpNRVRIT0Q6UFVCTElTSA0K
+QkVHSU46VkVWRU5UDQpVSUQ6MTc5Mjk3MzUyNTYwOC1tZXRhLWdsb2JhbC1haS1kZXZlbG9wZXIt
+aGFja2F0aG9uQGNlcmVicmFsdmFsbGV5LmFpDQpTVU1NQVJZOk1ldGEgR2xvYmFsIEFJIERldmVs
+b3BlciBIYWNrYXRob24NCkRFU0NSSVBUSU9OOllvdSdyZSBhdHRlbmRpbmcgYSBDZXJlYnJhbCBW
+YWxsZXkgZXZlbnQhIFZpZXcgbW9yZSBpbmZvcm1hdGlvbiBhdCBodHRwczovL2NlcmVicmFsdmFs
+bGV5LmFpL2UvbWV0YS1haS1kZXZlbG9wZXItaGFja2F0aG9uLg0KRFRTVEFSVDtUWklEPUVTVDoy
+MDI2MTAyNlQxMjAwMDANCkRURU5EO1RaSUQ9RVNUOjIwMjYxMTA0VDIxMDAwMA0KTE9DQVRJT046
+UmVtb3RlDQpTVEFUVVM6Q09ORklSTUVEDQpTRVFVRU5DRTowDQpEVFNUQU1QOjIwMjYxMDI2VDAw
+MTIwNVoNCkNSRUFURUQ6MjAyNjEwMjZUMDAxMjA1Wg0KQ0xBU1M6UFJJVkFURQ0KVFJBTlNQOk9Q
+QVFVRQ0KRU5EOlZFVkVOVA0KRU5EOlZDQUxFTkRBUg==
+----_NmP-241d09a9612d392b-Part_1--
