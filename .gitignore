@@ -1,3 +1,27 @@
 # Secrets must never be committed. Adapters read MODEL_API_KEY from the
 # environment first, then from a project-root .env (see adapters/env.py).
 .env
+.env.*
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Data (DVC-managed / collected, not committed)
+data/dev/
+data/test/
+data/labels/
+
+# Export outputs
+*.xlsx
+
+# macOS
+.DS_Store
