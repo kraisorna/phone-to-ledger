@@ -1,0 +1,334 @@
+Delivered-To: kraisornar@gmail.com
+Received: by 2002:ac9:52db:0:b0:665:3a05:4f81 with SMTP id l27csp1676770ocb;
+        Sun, 25 Oct 2026 02:09:18 -0700 (PDT)
+X-Received: by 2002:a05:620a:4482:b0:93e:c12c:43f9 with SMTP id af79cd13be357-940ef9bcb84mr533626785a.70.1792919358435;
+        Sun, 25 Oct 2026 02:09:18 -0700 (PDT)
+ARC-Seal: i=1; a=rsa-sha256; t=1792919358; cv=none;
+        d=google.com; s=arc-20260327;
+        b=hyMWn9LYUJzpXZraiTHmvHBJU36Fxog/zDfR4WXiHbQA8NlNEHrbS2Jfp4g6vzefO4
+         QXBaaBrZfM/sWReis2A/ys9L2wW1jhdzsu0OzNbVK5tv0Xq0vZCSFPW/+0zMLreCphVh
+         0wGl6nGp0zut/ON7oXHrkzEtikQEIoU1mv9IwTKyCyfsNqwgTTG5DZ3ljwHkSk1Q15Jy
+         FmgN3F6Y+AHVGkhsBDwSBcbHY9zVsRbba5G537wlMvU42ynh5RKrRJ4SkKsVsXNpDjtM
+         PXaioSPzo9XSK3SEJLZ0M3VuI9IxiIYiQ3Fg4gDYFwawxsjUEsO2KpWcADbtXkwZhbhA
+         Glqw==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=google.com; s=arc-20260327;
+        h=feedback-id:mime-version:date:message-id:subject:to:from
+         :dkim-signature:dkim-signature;
+        bh=yhzS7zHgh2yXwi/u6TwPdLFr/neZwrgvDgr7zI1I1wI=;
+        fh=JXHic9qiWJQhCjjec1XCYFkCz40YUuHyM63TzXqUEcg=;
+        b=qXkDVkUxcYxjRNqggkmI5FwjaejbQnMyYKKU8jNN+A+Je1gR0AI/+pUJs48GhNBR+w
+         m5V4oUQsc3GbuKImjXXqbqRqFoWh0DR7PzVaApqossz9faK6/ABcY6kwCzHvxdxfWcNB
+         e+AfNKYPSWQeiBl5ko3lMuMf7Uj6udBGSoraaIxGsc5YcVe47epmVsPGbU0B2G97xFW1
+         +9Myk/+9uxKKeRNWu5og6RVQy6w8O0Xb9YTq4JBBx3WeXuQGYMTzwoHso7M3KyvBrFVC
+         hSj+x1/w8SdBIel6TEGTTH2RlO6HJWB2KR/6RUSVVk73BLJLNHQfYGO/NuysWw4rLUb6
+         SkNA==;
+        dara=google.com
+ARC-Authentication-Results: i=1; mx.google.com;
+       dkim=pass header.i=@platform.cerebralvalley.ai header.s=resend header.b=vRih79Zg;
+       dkim=pass header.i=@amazonses.com header.s=224i4yxa5dv7c2xz3womw6peuasteono header.b=ANK++V2Q;
+       spf=pass (google.com: domain of 010001a172524a00-9e1c4092-eb3c-4546-a5e3-c2ba407fb9f4-000000@send.platform.cerebralvalley.ai designates 54.240.9.16 as permitted sender) smtp.mailfrom=010001a172524a00-9e1c4092-eb3c-4546-a5e3-c2ba407fb9f4-000000@send.platform.cerebralvalley.ai;
+       dmarc=pass (p=NONE sp=NONE dis=NONE) header.from=cerebralvalley.ai
+Return-Path: <010001a172524a00-9e1c4092-eb3c-4546-a5e3-c2ba407fb9f4-000000@send.platform.cerebralvalley.ai>
+Received: from a9-16.smtp-out.amazonses.com (a9-16.smtp-out.amazonses.com. [54.240.9.16])
+        by mx.google.com with ESMTPS id 6a1803df08f44-91c47c918c7si60768566d6.283.2026.10.25.02.09.18
+        for <kraisornar@gmail.com>
+        (version=TLS1_3 cipher=TLS_AES_128_GCM_SHA256 bits=128/128);
+        Sun, 25 Oct 2026 02:09:18 -0700 (PDT)
+Received-SPF: pass (google.com: domain of 010001a172524a00-9e1c4092-eb3c-4546-a5e3-c2ba407fb9f4-000000@send.platform.cerebralvalley.ai designates 54.240.9.16 as permitted sender) client-ip=54.240.9.16;
+Authentication-Results: mx.google.com;
+       dkim=pass header.i=@platform.cerebralvalley.ai header.s=resend header.b=vRih79Zg;
+       dkim=pass header.i=@amazonses.com header.s=224i4yxa5dv7c2xz3womw6peuasteono header.b=ANK++V2Q;
+       spf=pass (google.com: domain of 010001a172524a00-9e1c4092-eb3c-4546-a5e3-c2ba407fb9f4-000000@send.platform.cerebralvalley.ai designates 54.240.9.16 as permitted sender) smtp.mailfrom=010001a172524a00-9e1c4092-eb3c-4546-a5e3-c2ba407fb9f4-000000@send.platform.cerebralvalley.ai;
+       dmarc=pass (p=NONE sp=NONE dis=NONE) header.from=cerebralvalley.ai
+DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/simple; s=resend;
+	d=platform.cerebralvalley.ai; t=1792919358;
+	h=From:To:Subject:Message-ID:Date:MIME-Version:Content-Type;
+	bh=JwW2lvwWo9IMfSlr8dXw/uKeANxSqBT9KC71gNr+f60=;
+	b=vRih79ZgX0Hq9RYsVgFF5skOniAkAKXds+honE8LQPTUJmAicWLluSI8sZ30HoDB
+	rH5t7ln2/g+Ts3PtmKEdyqGnfSMb92kvHP8mZJWwbbIExgmZu7K3VOn0DWLWiZW/AQ5
+	JL6EGYy2pFFeVALsf2dqAnEZQkf7a8JbpX/+T2Q0=
+DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/simple;
+	s=224i4yxa5dv7c2xz3womw6peuasteono; d=amazonses.com; t=1792919358;
+	h=From:To:Subject:Message-ID:Date:MIME-Version:Content-Type:Feedback-ID;
+	bh=JwW2lvwWo9IMfSlr8dXw/uKeANxSqBT9KC71gNr+f60=;
+	b=ANK++V2Qk8l4cQqb/BCHM35aVSjM8MeG/qLmfVuoN9MbZbq4wcTVpmaxVLUhL2JC
+	bQBl/EJSmCeUbM3pQeAfc49sBAI1txnY5toe568nXEpKMMe6PzseIPATJh9BAtTBUrE
+	/C+l223AO+d8UJWAZcB1AkEpdOOSz/3501aW/28c=
+From: Cerebral Valley <notifications@platform.cerebralvalley.ai>
+To: kraisornar@gmail.com
+Subject: Welcome to Cerebral Valley, Kraisorn
+Message-ID: <010001a172524a00-9e1c4092-eb3c-4546-a5e3-c2ba407fb9f4-000000@email.amazonses.com>
+Date: Sun, 25 Oct 2026 09:09:17 +0000
+MIME-Version: 1.0
+Content-Type: multipart/alternative;
+ boundary="--_NmP-5a31626cde2f4d81-Part_1"
+Feedback-ID: :1.us-east-1.WjP8FNYwXcw8fy2x3QOBThuui3HMxtkHaBBONlMQrLIC/KPEcEFN2gQGwz0XuIANkAYZ9YMGYlc/N3wdyIDkEp2sR2MQoCvUynoCASOgyKJht5eArKINOuKAkar/KsYijHhpbJOgk9R35okPBICrf5ckNCeBzk6U1wOMpeApJyw=:1.us-east-1.epbACCJLarUaEI78XZoGREJ9LamRjxMH5pM2kZb64rA=:AmazonSES
+X-SES-Outgoing: 2026.10.25-54.240.9.16
+
+----_NmP-5a31626cde2f4d81-Part_1
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+MEET CEREBRAL VALLEY
+
+Hi Kraisorn, welcome to CV. We bring together the =
+people building AI, from founders and developers to leading labs. Here's =
+how to get involved.
+
+
+EVENTS
+
+Discover hackathons, meetups, and demos =
+around the world. Find something near you or join an event online. Browse =
+events https://cerebralvalley.ai/events.
+
+
+SERVICES
+
+We run AI hackathons and private enterprise events, from build days to =
+workshops and demos. For AI infrastructure projects, we connect you with =
+land, power, chips, and partners. Our services https://cerebralvalley.=
+ai/about.
+
+
+NEWSLETTER
+
+Our newsletter covers the people building AI, with =
+founder interviews, community news, and upcoming events. Read more =
+https://cerebralvalley.ai/newsletter.
+
+See you soon,
+
+----------------------------------------
+
+AI's global ecosystem
+
+X https://cerebralvalley.ai/x =C2=B7 LinkedIn https://cerebralvalley.=
+ai/linkedin =C2=B7 Careers https://cerebralvalley.ai/careers =C2=B7 =
+unsubscribe https://cerebralvalley.ai/profile?open=3Dtrue&tab=3Dnotificatio=
+ns
+----_NmP-5a31626cde2f4d81-Part_1
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.=
+w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html dir=3D"ltr" =
+lang=3D"en"><head><link rel=3D"preload" as=3D"image" href=3D"https://cdn.=
+cerebralvalley.ai/cv-logo-black-0779a4da5e3024dd.png"/><link =
+rel=3D"preload" as=3D"image" href=3D"https://cdn.cerebralvalley.=
+ai/cv-team-signature-97e8261ff3f58e38.png"/><meta content=3D"text/html; =
+charset=3DUTF-8" http-equiv=3D"Content-Type"/><meta =
+name=3D"x-apple-disable-message-reformatting"/><meta name=3D"color-scheme" =
+content=3D"light"/><meta name=3D"supported-color-schemes" =
+content=3D"light"/><style>
+          body { margin: 0; padding: 0; =
+background-color: #F3F4F5; color-scheme: light; }
+          @media only =
+screen and (min-width: 601px) {
+            body > table { height: 100vh; }
+            body > table > tbody > tr > td { vertical-align: middle; }
+          }
+          @media only screen and (max-width: 600px) {
+            body, body > table > tbody > tr > td { background-color: =
+#FFFFFF !important; }
+            .welcome-page-content { padding-top: 48px=
+ !important; padding-left: 20px !important; padding-right: 20px !important;=
+ }
+          }
+        </style><style>
+    @font-face {
+      font-family: 'Inter';
+      font-style: normal;
+      font-weight: 100 900;
+      mso-font-alt: 'Arial';
+      src: url(https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMr=
+MxCp50SjIa1ZL7W0Q5nw.woff2) format('woff2');
+    }
+
+    * {
+      font-family: 'Inter', Arial, Helvetica, sans-serif;
+    }
+  </style></head><body style=3D"background-color:#F3F4F5"><!--$--><div =
+style=3D"display:none;overflow:hidden;line-height:1px;opacity:0;max-height:=
+0;max-width:0" data-skip-in-text=3D"true">Find AI events, meet builders, =
+and see how we can help.<div>=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=
+=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=
+=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=
+=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=
+=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=
+=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=
+=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=
+=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=
+=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=
+=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=
+=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=
+=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=
+=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=
+=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=
+=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=
+=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=
+=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=
+=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=
+=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=
+=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=
+=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=
+=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=
+=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=
+=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=
+=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=
+=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=
+=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=
+=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=
+=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=
+=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=
+=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=
+=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=
+=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=
+=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=
+=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=
+=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=
+=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=
+=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=
+=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=
+=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=
+=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=
+=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=
+=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=
+=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=
+=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=
+=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=
+=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=
+=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=
+=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=
+=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=
+=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=
+=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=
+=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=
+=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=
+=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=
+=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=
+=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=
+=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=
+=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=
+=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=
+=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=
+=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=
+=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=
+=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=
+=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=
+=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=
+=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=
+=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=
+=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=
+=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=
+=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=
+=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=
+=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=
+=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=
+=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=
+=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=
+=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=
+=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=
+=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=
+=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=
+=C2=A0=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=
+=E2=80=8C=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=
+=E2=80=8B=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF=C2=A0=E2=80=8C=E2=80=8B=
+=E2=80=8D=E2=80=8E=E2=80=8F=EF=BB=BF</div></div><table border=3D"0" =
+width=3D"100%" cellPadding=3D"0" cellSpacing=3D"0" role=3D"presentation" =
+align=3D"center"><tbody><tr><td style=3D"margin:0;padding:24px =
+12px;font-family:Inter, Arial, Helvetica, sans-serif;background-color:#F3F4=
+F5"><table align=3D"center" width=3D"100%" border=3D"0" cellPadding=3D"0" =
+cellSpacing=3D"0" role=3D"presentation" style=3D"max-width:640px;margin:0 =
+auto;padding:0;background-color:#FFFFFF"><tbody><tr =
+style=3D"width:100%"><td><table align=3D"center" width=3D"100%" =
+border=3D"0" cellPadding=3D"0" cellSpacing=3D"0" role=3D"presentation"><tbo=
+dy style=3D"width:100%"><tr style=3D"width:100%"><td =
+class=3D"welcome-page-content" data-id=3D"__react-email-column" =
+style=3D"padding:42px 40px 40px"><table align=3D"center" width=3D"100%" =
+border=3D"0" cellPadding=3D"0" cellSpacing=3D"0" role=3D"presentation"><tbo=
+dy style=3D"width:100%"><tr style=3D"width:100%"><td align=3D"left" =
+data-id=3D"__react-email-column" style=3D"padding-bottom:28px"><img =
+alt=3D"CV Logo" height=3D"46" src=3D"https://cdn.cerebralvalley.=
+ai/cv-logo-black-0779a4da5e3024dd.png" style=3D"display:block;outline:none;=
+border:none;text-decoration:none;width:46px;height:46px;padding:0 =
+2px;margin:0 0 24px" width=3D"46"/><h1 style=3D"font-family:Inter, Arial, =
+Helvetica, sans-serif;font-size:25.92px;font-weight:530;line-height:33.=
+696px;letter-spacing:-0.005em;color:#0A0A0B;margin:0;text-align:left">Meet =
+Cerebral Valley</h1></td></tr></tbody></table><p style=3D"font-size:16px;li=
+ne-height:22.4px;margin:0;color:#34373B;font-family:Inter, Arial, Helvetica=
+, sans-serif;font-weight:400;letter-spacing:-0.1px;margin-bottom:28px;overf=
+low-wrap:anywhere;word-break:break-word;margin-top:0;margin-left:0;margin-r=
+ight:0">Hi Kraisorn, <!-- -->welcome to CV. We bring together the people =
+building AI, from founders and developers to leading labs. Here&#x27;s how =
+to get involved.</p><table align=3D"center" width=3D"100%" border=3D"0" =
+cellPadding=3D"0" cellSpacing=3D"0" role=3D"presentation"><tbody =
+style=3D"width:100%"><tr style=3D"width:100%"><td data-id=3D"__react-email-=
+column" style=3D"padding-bottom:32px"><h2 style=3D"font-family:Inter, Arial=
+, Helvetica, sans-serif;font-size:18px;font-weight:530;line-height:23.=
+4px;letter-spacing:-0.00075em;color:#0A0A0B;margin:0">Events</h2><p =
+style=3D"font-size:16px;line-height:22.4px;margin:0;color:#34373B;font-fami=
+ly:Inter, Arial, Helvetica, sans-serif;font-weight:400;letter-spacing:-0.=
+1px;margin-top:8px;margin-bottom:0;margin-left:0;margin-right:0">Discover =
+hackathons, meetups, and demos around the world. Find something near you or=
+ join an event online. <a href=3D"https://cerebralvalley.ai/events" =
+style=3D"color:#006CED;text-decoration-line:none;text-decoration:underline;=
+text-underline-offset:3px" target=3D"_blank">Browse events</a>.=
+</p></td></tr></tbody></table><table align=3D"center" width=3D"100%" =
+border=3D"0" cellPadding=3D"0" cellSpacing=3D"0" role=3D"presentation"><tbo=
+dy style=3D"width:100%"><tr style=3D"width:100%"><td =
+data-id=3D"__react-email-column" style=3D"padding-bottom:32px"><h2 =
+style=3D"font-family:Inter, Arial, Helvetica, sans-serif;font-size:18px;fon=
+t-weight:530;line-height:23.4px;letter-spacing:-0.00075em;color:#0A0A0B;mar=
+gin:0">Services</h2><p style=3D"font-size:16px;line-height:22.=
+4px;margin:0;color:#34373B;font-family:Inter, Arial, Helvetica, =
+sans-serif;font-weight:400;letter-spacing:-0.1px;margin-top:8px;margin-bott=
+om:0;margin-left:0;margin-right:0">We run AI hackathons and private =
+enterprise events, from build days to workshops and demos. For AI =
+infrastructure projects, we connect you with land, power, chips, and =
+partners. <a href=3D"https://cerebralvalley.ai/about" =
+style=3D"color:#006CED;text-decoration-line:none;text-decoration:underline;=
+text-underline-offset:3px" target=3D"_blank">Our services</a>.=
+</p></td></tr></tbody></table><table align=3D"center" width=3D"100%" =
+border=3D"0" cellPadding=3D"0" cellSpacing=3D"0" role=3D"presentation"><tbo=
+dy style=3D"width:100%"><tr style=3D"width:100%"><td =
+data-id=3D"__react-email-column" style=3D"padding-bottom:32px"><h2 =
+style=3D"font-family:Inter, Arial, Helvetica, sans-serif;font-size:18px;fon=
+t-weight:530;line-height:23.4px;letter-spacing:-0.00075em;color:#0A0A0B;mar=
+gin:0">Newsletter</h2><p style=3D"font-size:16px;line-height:22.=
+4px;margin:0;color:#34373B;font-family:Inter, Arial, Helvetica, =
+sans-serif;font-weight:400;letter-spacing:-0.1px;margin-top:8px;margin-bott=
+om:0;margin-left:0;margin-right:0">Our newsletter covers the people =
+building AI, with founder interviews, community news, and upcoming events. =
+<a href=3D"https://cerebralvalley.ai/newsletter" style=3D"color:#006CED;tex=
+t-decoration-line:none;text-decoration:underline;text-underline-offset:3px"=
+ target=3D"_blank">Read more</a>.</p></td></tr></tbody></table><p =
+style=3D"font-size:16px;line-height:22.4px;margin:0;color:#34373B;font-fami=
+ly:Inter, Arial, Helvetica, sans-serif;font-weight:400;letter-spacing:-0.=
+1px;margin-top:0;margin-bottom:0;margin-left:0;margin-right:0">See you soon=
+,</p><img alt=3D"CV team" src=3D"https://cdn.cerebralvalley.=
+ai/cv-team-signature-97e8261ff3f58e38.png" style=3D"display:block;outline:n=
+one;border:none;text-decoration:none;width:136.8px;height:41.=
+04px;margin-top:8px;color:#0A0A0B" width=3D"137"/><hr =
+style=3D"width:100%;border:none;border-top:1px solid =
+#eaeaea;border-color:#E7E8EA;margin:32px 0 24px"/><p =
+style=3D"font-size:15px;line-height:21px;font-family:Inter, Arial, =
+Helvetica, sans-serif;font-weight:400;letter-spacing:0;color:#686C72;margin=
+:0 0 8px;margin-bottom:12px;margin-top:0;margin-right:0;margin-left:0">AI&#=
+x27;s global ecosystem</p><p style=3D"font-size:13px;line-height:18.=
+2px;font-family:Inter, Arial, Helvetica, sans-serif;font-weight:400;letter-=
+spacing:0;color:#686C72;margin:0 0 8px;margin-top:0;margin-right:0;margin-b=
+ottom:8px;margin-left:0"><a href=3D"https://cerebralvalley.ai/x" =
+style=3D"color:#006CED;text-decoration-line:none;text-decoration:underline;=
+text-underline-offset:3px" target=3D"_blank">X</a> =C2=B7 <a =
+href=3D"https://cerebralvalley.ai/linkedin" style=3D"color:#006CED;text-dec=
+oration-line:none;text-decoration:underline;text-underline-offset:3px" =
+target=3D"_blank">LinkedIn</a> =C2=B7 <a href=3D"https://cerebralvalley.=
+ai/careers" style=3D"color:#006CED;text-decoration-line:none;text-decoratio=
+n:underline;text-underline-offset:3px" target=3D"_blank">Careers</a> =C2=B7=
+ <a href=3D"https://cerebralvalley.ai/profile?open=3Dtrue&amp;tab=3Dnotific=
+ations" style=3D"color:#006CED;text-decoration-line:none;text-decoration:un=
+derline;text-underline-offset:3px" target=3D"_blank">unsubscribe</a></p></t=
+d></tr></tbody></table></td></tr></tbody></table></td></tr></tbody></table>=
+<!--7--><!--/$--></body></html>
+----_NmP-5a31626cde2f4d81-Part_1--

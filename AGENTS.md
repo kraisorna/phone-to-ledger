@@ -93,3 +93,51 @@ are used programmatically.
 
 Eval labels + 150-receipt collection, S7–S11 fixtures, export target
 format decision, Glimmer model wiring, crop renderer for Spark.
+
+## Hackathon — Meta Global AI Developer Hackathon (Cerebral Valley)
+
+Sources: `docs/hackathon/*.eml` (entry APPROVED) + saved `Details…
+.mhtml` (full Participant Guide). Track: **Indie Developer**
+(confirmed; $400K pool: 150/100/75/50/25K). Problem statement:
+"Build for Your World" (Meta models in your domain).
+
+- Window: Mon Oct 26 12:00 PM ET → **Wed Nov 4 9:00 PM EST** (Thu Nov
+  5 02:00 UTC = 09:00 Bangkok). Tue Nov 3 is the last day for
+  submission questions/troubleshooting. Judging Nov 5–8; closing Nov 9.
+- Submission (one per team, via CV platform, Representative submits):
+  public repo accessible + **3-minute demo video** (primary judging
+  artifact with code + live product) + everyone listed. Late = out.
+- Judging: Stage 1 pass/fail (fits theme + reasonably used Meta Model
+  API / open weights). Stage 2: Impact 30%, Meta tooling 25%,
+  Technical depth 20%, Demo 25%. Top 5/track to live finals.
+- Bonus fits: Best Agentic $5K (validate/triage agent), Best Open
+  Weight $10K (needs the Glimmer path real), Most Viral $20K (demo on
+  X by Nov 8 EOD), Community Vote $10K.
+- Credits: $150 Meta Model API claimed. Status Oct 31: **$121.18
+  left** ($28.82 used; billing lags ~1h). No payment method on file,
+  so spend hard-stops at $0 — do not ask for one. Email spend alerts
+  not yet set up (user to click Set up). Partners: Baseten/Modal/
+  Fireworks $100 each (Baseten model:
+  `meta-models/muse-spark-open-1026`).
+
+Compliance (disqualification risk — never break these):
+
+- Repo must stay PUBLIC (verified). Nothing unlicensed (code/data).
+- NEW WORK ONLY: demo/video/submission may highlight ONLY what was
+  built Oct 26–Nov 4. Verified: all commits here are Oct 28+ (clean).
+  Never merge in pre-event code/data (incl. `../rapee` specs/samples
+  or old fixtures) without telling the user it must be excluded from
+  demo claims — judges disqualify unclear originality at their sole
+  discretion.
+
+Alert the user in your final message whenever ANY of these holds:
+
+1. A submission piece is missing or stale: demo video, DEMO.md,
+   README quickstart, public-repo access, contributor list.
+2. Work touches submission readiness: live demo path, license,
+   secrets exposure, track/problem-statement framing.
+3. The deadline is within 48h — lead with time remaining and cut scope
+   to demo-critical items only; within 24h — say so in the first line.
+4. A task risks the deadline (long eval batches, bulk API spend,
+   refactors, Glimmer rabbit holes) — flag it before starting.
+5. Anything pre-dating Oct 26 enters the tree — stop and disclose.

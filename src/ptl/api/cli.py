@@ -1,10 +1,11 @@
-"""`ptl` CLI: ingest / validate / export / eval / review."""
+"""`ptl` CLI: ingest / validate / export / eval / baseline / e2e / review."""
 import argparse
 import json
 import sys
 
 from ..eval.run_baseline import SYSTEMS, run_baseline
 from ..eval.run_eval import run_eval
+from .e2e import NO_RECEIPTS, run_e2e
 from ..pipeline.dedup import SeenStore
 from ..pipeline.ingest import ingest_bytes, mask_pii
 from ..pipeline.triage import triage
@@ -102,6 +103,47 @@ def cmd_baseline(args):
     return 0 if preds else 1
 
 
+def cmd_e2e(args):
+    seg = ext = None
+    if args.api_key or args.concept != "receipt":
+        from ..adapters.sam31 import Sam31Segmenter
+        from ..adapters.spark import SparkExtractor
+        seg = Sam31Segmenter(api_key=args.api_key, concept=args.concept)
+        ext = SparkExtractor(api_key=args.api_key)
+    store = SeenStore.load(args.seen) if args.seen else None
+    try:
+        result = run_e2e(args.image, segmenter=seg, extractor=ext,
+                         seen_store=store)
+    except (OSError, ValueError, RuntimeError) as e:
+        print(f"e2e failed: {e}", file=sys.stderr)
+        return 1
+    if store is not None and args.seen:
+        store.save(args.seen)
+    if args.out:
+        with open(args.out, "w", encoding="utf-8") as f:
+            json.dump(result, f, indent=2, ensure_ascii=False)
+    if args.csv:
+        if args.append:
+            from ..pipeline.export import append_csv
+            try:
+                append_csv(args.csv, result["rows"])
+            except ValueError as e:
+                print(f"e2e: {e}", file=sys.stderr)
+                return 1
+        else:
+            with open(args.csv, "w", encoding="utf-8") as f:
+                f.write(result["csv"])
+    print(json.dumps(result, indent=2, ensure_ascii=False))
+    if result["note"] == NO_RECEIPTS:
+        return 4
+    if not result["rows"]:
+        return 3
+    if any((d.get("triage") or {}).get("decision") != "auto_accept"
+           or d.get("excluded") for d in result["docs"]):
+        return 2
+    return 0
+
+
 def cmd_review(args):
     queue = ReviewQueue(args.queue)
     if args.pending:
@@ -178,6 +220,20 @@ def build_parser():
     pb.add_argument("--images", required=True, help="dir of receipt images")
     pb.add_argument("--out", required=True, help="preds JSON to write")
     pb.set_defaults(func=cmd_baseline)
+    pe2 = sub.add_parser("e2e", help="image -> segment -> extract -> "
+                         "validate -> triage -> ledger rows (exits: 2 "
+                         "needs review, 3 no rows, 4 no receipts found)")
+    pe2.add_argument("image")
+    pe2.add_argument("--out", default="", help="write full result JSON")
+    pe2.add_argument("--csv", default="", help="write ledger CSV")
+    pe2.add_argument("--append", action="store_true",
+                     help="append rows to --csv instead of overwriting")
+    pe2.add_argument("--seen", default="", help="seen-store JSON")
+    pe2.add_argument("--concept", default="receipt",
+                     help="SAM concept phrase (default: receipt)")
+    pe2.add_argument("--api-key", default="",
+                     help="Meta Model API key (default: MODEL_API_KEY)")
+    pe2.set_defaults(func=cmd_e2e)
     pr = sub.add_parser("review", help="human review queue operations")
     pr.add_argument("--queue", required=True)
     pr.add_argument("--pending", action="store_true",
