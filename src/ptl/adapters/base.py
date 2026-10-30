@@ -1,6 +1,7 @@
 """Adapter interfaces shared by cloud and offline backends."""
 import http.client
 import json
+import os
 import time
 import urllib.error
 import urllib.request
@@ -80,6 +81,33 @@ def post_json(url, payload, api_key, timeout, attempts=ATTEMPTS,
             if n + 1 >= tries:
                 raise
         sleep(backoff * 2 ** n)
+
+
+def source_name(source):
+    """Basename for path-like extraction sources; None for raw bytes.
+
+    Duck-typed (no Crop import): objects carrying image_path resolve
+    through it, plain paths stringify, empty values yield None.
+    """
+    if isinstance(source, (bytes, bytearray)):
+        return None
+    path = getattr(source, "image_path", source)
+    if not path:
+        return None
+    return os.path.basename(str(path))
+
+
+def stamp_source(doc, source):
+    """Set doc source.image_uri to the true filename when known.
+
+    Overwrites model-emitted values: the adapter knows the real file
+    (ledger audit trail). Raw-bytes input leaves the block untouched.
+    Returns doc.
+    """
+    name = source_name(source)
+    if name is not None and isinstance(doc.get("source"), dict):
+        doc["source"]["image_uri"] = name
+    return doc
 
 
 class Segmenter(ABC):

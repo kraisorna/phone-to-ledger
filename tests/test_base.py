@@ -12,7 +12,9 @@ import unittest
 import urllib.error
 from unittest import mock
 
-from ptl.adapters.base import new_stats, post_json, record_call, response_usage
+from ptl.adapters.base import (new_stats, post_json, record_call,
+                               response_usage, source_name, stamp_source)
+from ptl.pipeline.segment import Crop
 
 URL = "https://x.test/v1/responses"
 
@@ -159,6 +161,31 @@ class TestPostJson(unittest.TestCase):
                 post_json(URL, {"model": "m"}, "k", 300, attempts=2,
                           on_response=lambda b, s: seen.append((b, s)))
         self.assertEqual(seen, [])
+
+
+class TestSourceStamp(unittest.TestCase):
+    def test_source_name_kinds(self):
+        self.assertEqual(source_name("/a/b/S1.jpg"), "S1.jpg")
+        self.assertEqual(
+            source_name(Crop(index=0, polygon=[], image_path="/a/S2.jpg")),
+            "S2.jpg")
+        self.assertIsNone(source_name(b"\xff\xd8 fake"))
+        self.assertIsNone(
+            source_name(Crop(index=0, polygon=[], image_path="")))
+        self.assertIsNone(source_name(""))
+
+    def test_stamp_source_overwrites_and_skips(self):
+        doc = {"source": {"image_uri": "hallucinated.jpg"}}
+        self.assertEqual(
+            stamp_source(doc, "/a/b/S1.jpg")["source"]["image_uri"],
+            "S1.jpg")
+        bare = {"source": {}}
+        self.assertNotIn("image_uri",
+                         stamp_source(bare, b"\xff\xd8 fake")["source"])
+        nosrc = stamp_source({"totals": {}}, "/a/S1.jpg")
+        self.assertNotIn("source", nosrc)
+        weird = {"source": "oops"}
+        self.assertEqual(stamp_source(weird, "/a/S1.jpg")["source"], "oops")
 
 
 if __name__ == "__main__":

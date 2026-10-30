@@ -1,9 +1,13 @@
-"""System C: full pipeline (segment + quality + Spark + R1-R12 + triage)."""
+"""System C: full pipeline (segment + quality + Spark + R1-R14 + triage).
+
+One validation-guided re-extraction fires while triage says
+needs_review (see ptl.pipeline.retry); the per-crop dict records it
+under "attempts" (1 = first reading accepted).
+"""
 from ptl.adapters.sam31 import Sam31Segmenter
 from ptl.adapters.spark import SparkExtractor
 from ptl.pipeline.quality import quality_gate
-from ptl.pipeline.triage import triage
-from ptl.pipeline.validate_rules import validate
+from ptl.pipeline.retry import retry_extract
 
 
 def run(image_path, **kw):
@@ -16,10 +20,10 @@ def run(image_path, **kw):
         if not gate.passed:
             docs.append({"crop": crop.index, "rejected": gate.to_dict()})
             continue
-        doc, conf = SparkExtractor(**kw).extract(crop)
+        doc, conf, validation, decision, used = retry_extract(
+            crop, SparkExtractor(**kw))
         doc["field_confidence"] = conf
-        validation = validate(doc)
         docs.append({"crop": crop.index, "doc": doc,
-                     "validation": validation,
-                     "triage": triage(doc, validation)})
+                     "validation": validation, "triage": decision,
+                     "attempts": used})
     return docs

@@ -3,6 +3,7 @@ import argparse
 import json
 import sys
 
+from ..eval.run_baseline import SYSTEMS, run_baseline
 from ..eval.run_eval import run_eval
 from ..pipeline.dedup import SeenStore
 from ..pipeline.ingest import ingest_bytes, mask_pii
@@ -92,6 +93,15 @@ def cmd_eval(args):
     return 0
 
 
+def cmd_baseline(args):
+    preds, summary = run_baseline(args.system, args.images)
+    if preds:
+        with open(args.out, "w", encoding="utf-8") as f:
+            json.dump(preds, f, ensure_ascii=False)
+    print(json.dumps(summary, indent=2))
+    return 0 if preds else 1
+
+
 def cmd_review(args):
     queue = ReviewQueue(args.queue)
     if args.pending:
@@ -141,7 +151,7 @@ def build_parser():
     pi = sub.add_parser("ingest", help="hash + EXIF note for an image")
     pi.add_argument("image")
     pi.set_defaults(func=cmd_ingest)
-    pv = sub.add_parser("validate", help="run R1-R12 + triage on a doc JSON")
+    pv = sub.add_parser("validate", help="run R1-R14 + triage on a doc JSON")
     pv.add_argument("--doc", required=True)
     pv.add_argument("--force", action="store_true")
     pv.add_argument("--seen", default="",
@@ -162,6 +172,12 @@ def build_parser():
     pg.add_argument("--labels", required=True)
     pg.add_argument("--faded-ids", default="")
     pg.set_defaults(func=cmd_eval)
+    pb = sub.add_parser("baseline", help="run system A-D over images")
+    pb.add_argument("--system", required=True, choices=sorted(SYSTEMS),
+                    help="a=tesseract b=spark-raw c=full-spark d=glimmer")
+    pb.add_argument("--images", required=True, help="dir of receipt images")
+    pb.add_argument("--out", required=True, help="preds JSON to write")
+    pb.set_defaults(func=cmd_baseline)
     pr = sub.add_parser("review", help="human review queue operations")
     pr.add_argument("--queue", required=True)
     pr.add_argument("--pending", action="store_true",

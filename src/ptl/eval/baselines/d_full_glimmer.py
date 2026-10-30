@@ -1,4 +1,4 @@
-"""System D: full offline pipeline (Glimmer local models)."""
+"""System D: full offline pipeline (Glimmer local models, four-pass)."""
 from ptl.adapters.glimmer import (GlimmerExtractor, GlimmerReviewer,
                                   GlimmerSegmenter)
 from ptl.pipeline.quality import quality_gate

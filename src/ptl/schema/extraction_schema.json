@@ -14,7 +14,7 @@
     "form": {"type": "string", "enum": ["full", "abbreviated", "unknown"], "default": "unknown"},
     "can_claim_input_vat": {"type": "boolean"},
     "document_number": {"type": ["string", "null"]},
-    "status": {"type": "string"},
+    "status": {"type": "string", "enum": ["paid", "unpaid", "partially_paid", "issued", "draft"]},
     "references_document_id": {"type": ["string", "null"]},
     "dates": {
       "type": "object",

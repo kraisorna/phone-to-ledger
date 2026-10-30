@@ -9,7 +9,15 @@ grammar are ignored: crops come from boxes. Transient transport
 failures retry 3x with backoff (see base.post_json). Per-call usage
 accumulates on .stats (calls/tokens/seconds). Raises loudly on auth /
 entitlement errors and on non-empty output without boxes; empty output
-means no receipts found (verified with a negative concept).
+under every concept means no receipts found (verified with a negative
+concept). When the primary concept matches nothing, each fallback
+concept is tried in order until one returns crops: "receipt" misses
+some dense English-only slips (S4/S12 Starbucks, verified live over
+7 calls incl. concept, padding, and material variants) while "paper"
+recovers them with whole-frame boxes. Fallbacks only fire on an empty
+primary, so typical images still cost one call; a fallback crop of a
+non-receipt sheet is rejected downstream by extraction + validation,
+never silently posted.
 
 Crops come back deskewed=False, partial=False: no reliable partial
 signal exists in boxes alone (a complete slip can touch frame edges),
@@ -29,6 +37,7 @@ from .env import resolve_secret
 BASE_URL = "https://api.meta.ai/v1"
 MODEL = "sam-3.1"
 CONCEPT = "receipt"
+FALLBACK_CONCEPTS = ("paper",)
 
 BOX_RE = re.compile(r"<\|box;x1=(\d+);y1=(\d+);x2=(\d+);y2=(\d+);"
                     r"w=(\d+);h=(\d+)\|>")
@@ -36,11 +45,13 @@ BOX_RE = re.compile(r"<\|box;x1=(\d+);y1=(\d+);x2=(\d+);y2=(\d+);"
 
 class Sam31Segmenter(Segmenter):
     def __init__(self, api_key=None, endpoint=BASE_URL, model=MODEL,
-                 concept=CONCEPT, timeout=300, attempts=ATTEMPTS):
+                 concept=CONCEPT, fallback_concepts=FALLBACK_CONCEPTS,
+                 timeout=300, attempts=ATTEMPTS):
         self.api_key = api_key or resolve_secret("MODEL_API_KEY")
         self.endpoint = (endpoint or BASE_URL).rstrip("/")
         self.model = model
         self.concept = concept
+        self.fallback_concepts = tuple(fallback_concepts or ())
         self.timeout = timeout
         self.attempts = attempts
         self.stats = new_stats()
@@ -95,25 +106,35 @@ class Sam31Segmenter(Segmenter):
                              f"grammar may have changed: {text[:120]!r}")
         return boxes
 
-    def segment(self, image_path):
-        """Return one Crop per receipt box, polygons in source pixels."""
+    def _boxes_for_concept(self, image_url, concept):
         payload = {
             "model": self.model,
             "stream": False,
             "input": [{"type": "message", "role": "user", "content": [
-                {"type": "input_text", "text": self.concept},
-                {"type": "input_image",
-                 "image_url": self._data_url(image_path)},
+                {"type": "input_text", "text": concept},
+                {"type": "input_image", "image_url": image_url},
             ]}],
         }
         doc = self._post(payload)
-        texts = [part.get("text", "")
-                 for item in (doc.get("output") or [])
-                 for part in (item.get("content") or [])
-                 if part.get("type") == "output_text"]
         boxes = []
-        for text in texts:
-            boxes.extend(self.boxes_from_text(text))
+        for item in (doc.get("output") or []):
+            for part in (item.get("content") or []):
+                if part.get("type") == "output_text":
+                    boxes.extend(self.boxes_from_text(part.get("text", "")))
+        return boxes
+
+    def segment(self, image_path):
+        """Return one Crop per receipt box, polygons in source pixels.
+
+        Falls back through self.fallback_concepts while the primary
+        concept returns no boxes; [] only when every concept is empty.
+        """
+        image_url = self._data_url(image_path)
+        boxes = self._boxes_for_concept(image_url, self.concept)
+        for concept in self.fallback_concepts:
+            if boxes:
+                break
+            boxes = self._boxes_for_concept(image_url, concept)
         return [Crop(index=i,
                      polygon=[[x1, y1], [x2, y1], [x2, y2], [x1, y2]],
                      image_path=str(image_path))
