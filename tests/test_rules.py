@@ -123,7 +123,8 @@ class TestRules(unittest.TestCase):
 
     def test_r13_each_prong(self):
         def base():
-            return {"totals": {"grand_total": 10700},
+            return {"form": "abbreviated",
+                    "totals": {"grand_total": 10700},
                     "line_items": [{"line_number": 1, "description": "x",
                                     "line_total": 10700}],
                     "dates": {"issue_date": "2026-08-27"}}
@@ -139,6 +140,30 @@ class TestRules(unittest.TestCase):
                           if not res["pass"]]
                 self.assertEqual(failed, ["R13"])
                 self.assertTrue(v["requires_human_review"])
+
+    def test_r14_unknown_form_reviews(self):
+        d = fresh()
+        d["form"] = "unknown"
+        v = validate(d)
+        self.assertFalse(v["rules"]["R14"]["pass"])
+        self.assertTrue(v["requires_human_review"])
+        self.assertEqual(v["hard_failed"], [])  # soft: review, not block
+        self.assertEqual(triage(d, v)["decision"], "needs_review")
+
+    def test_r14_known_forms_pass(self):
+        for form in ("full", "abbreviated"):
+            with self.subTest(form):
+                d = fresh()
+                d["form"] = form
+                self.assertTrue(validate(d)["rules"]["R14"]["pass"])
+
+    def test_r14_missing_or_garbage_form_reviews(self):
+        d = fresh()
+        del d["form"]
+        self.assertFalse(validate(d)["rules"]["R14"]["pass"])
+        d = fresh()
+        d["form"] = "short"
+        self.assertFalse(validate(d)["rules"]["R14"]["pass"])
 
 
 if __name__ == "__main__":

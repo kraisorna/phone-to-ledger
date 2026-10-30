@@ -47,6 +47,24 @@ class TestSchema(unittest.TestCase):
         d = derive_claim_flag({**fresh(), "form": "full"})
         self.assertTrue(d["can_claim_input_vat"])
 
+    def test_bad_status_rejected(self):
+        d = dict(fresh(), status="ok")
+        errors = check_structure(d)
+        self.assertTrue(any("status" in e for e in errors), errors)
+        d = dict(fresh(), status="unpaid")
+        self.assertEqual(check_structure(d), [])
+
+    def test_unknown_form_unclaimable(self):
+        # derive_claim_flag used `form != "abbreviated"`, re-granting the
+        # claim on unknown forms at CLI load: a form-unknown Glimmer doc
+        # exported can_claim=yes. Only proven-full claims, matching the
+        # build_document guard.
+        d = derive_claim_flag({**fresh(), "form": "unknown"})
+        self.assertFalse(d["can_claim_input_vat"])
+        d = derive_claim_flag({k: v for k, v in fresh().items()
+                               if k != "form"})
+        self.assertFalse(d["can_claim_input_vat"])
+
 
 class TestReferenceDialect(unittest.TestCase):
     """Document keys follow rapee/docs/03-extraction-schema.json.

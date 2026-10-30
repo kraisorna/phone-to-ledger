@@ -31,6 +31,11 @@ def _urlopen_ok(doc):
     return mock.MagicMock(return_value=resp)
 
 
+def _urlopen_seq(*docs):
+    """urlopen mock serving one response doc per call, in order."""
+    return mock.MagicMock(side_effect=[_urlopen_ok(d)() for d in docs])
+
+
 def _write(path, data=b"x"):
     with open(path, "wb") as f:
         f.write(data)
@@ -55,7 +60,7 @@ class TestSam31(unittest.TestCase):
 
     def test_request_shape(self):
         seg = Sam31Segmenter(api_key="k", concept="receipt")
-        opener = _urlopen_ok(_doc(""))
+        opener = _urlopen_ok(_doc(TEXT_TWO))
         with tempfile.TemporaryDirectory() as tmp:
             img = _write(os.path.join(tmp, "r.jpg"), b"fake-jpeg-bytes")
             with mock.patch("ptl.adapters.sam31.urllib.request.urlopen",
@@ -131,6 +136,52 @@ class TestSam31(unittest.TestCase):
         self.assertEqual(seg.stats["input_tokens"], 500)
         self.assertEqual(seg.stats["output_tokens"], 50)
         self.assertGreaterEqual(seg.stats["seconds"], 0)
+
+    def test_fallback_concept_recovers_empty_primary(self):
+        seg = Sam31Segmenter(api_key="k")
+        opener = _urlopen_seq(_doc(""), _doc(TEXT_TWO))
+        with tempfile.TemporaryDirectory() as tmp:
+            img = _write(os.path.join(tmp, "r.jpg"), b"fake-jpeg-bytes")
+            with mock.patch("ptl.adapters.sam31.urllib.request.urlopen",
+                            opener):
+                crops = seg.segment(img)
+        self.assertEqual(len(crops), 2)
+        self.assertEqual(opener.call_count, 2)
+        first = json.loads(opener.call_args_list[0][0][0].data)
+        second = json.loads(opener.call_args_list[1][0][0].data)
+        self.assertEqual(first["input"][0]["content"][0]["text"], "receipt")
+        self.assertEqual(second["input"][0]["content"][0]["text"], "paper")
+
+    def test_primary_hit_makes_no_fallback_call(self):
+        seg = Sam31Segmenter(api_key="k")
+        opener = _urlopen_ok(_doc(TEXT_TWO))
+        with tempfile.TemporaryDirectory() as tmp:
+            img = _write(os.path.join(tmp, "r.jpg"), b"fake-jpeg-bytes")
+            with mock.patch("ptl.adapters.sam31.urllib.request.urlopen",
+                            opener):
+                crops = seg.segment(img)
+        self.assertEqual(len(crops), 2)
+        self.assertEqual(opener.call_count, 1)
+
+    def test_all_concepts_empty_returns_no_crops(self):
+        seg = Sam31Segmenter(api_key="k")
+        opener = _urlopen_seq(_doc(""), _doc("  "))
+        with tempfile.TemporaryDirectory() as tmp:
+            img = _write(os.path.join(tmp, "r.jpg"), b"fake-jpeg-bytes")
+            with mock.patch("ptl.adapters.sam31.urllib.request.urlopen",
+                            opener):
+                self.assertEqual(seg.segment(img), [])
+        self.assertEqual(opener.call_count, 2)
+
+    def test_fallback_chain_disabled(self):
+        seg = Sam31Segmenter(api_key="k", fallback_concepts=())
+        opener = _urlopen_ok(_doc(""))
+        with tempfile.TemporaryDirectory() as tmp:
+            img = _write(os.path.join(tmp, "r.jpg"), b"fake-jpeg-bytes")
+            with mock.patch("ptl.adapters.sam31.urllib.request.urlopen",
+                            opener):
+                self.assertEqual(seg.segment(img), [])
+        self.assertEqual(opener.call_count, 1)
 
     def test_auth_and_entitlement_errors(self):
         seg = Sam31Segmenter(api_key="k")

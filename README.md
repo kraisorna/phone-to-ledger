@@ -11,7 +11,7 @@ phone photo -> ingest -> segment -> extract -> validate -> export.
   `validate_rules` (R1-R12 pure fns), `triage`, `export`
 - `src/ptl/adapters/` — `base` interfaces + live `sam31` /
   `spark` (Meta Model API, `MODEL_API_KEY` from env or `.env`), `glimmer`
-  stub, working `tesseract` baseline
+  (local Ollama `muse-glimmer`, fully offline), working `tesseract` baseline
 - `src/ptl/review/queue.py` — human review queue
 - `src/ptl/api/cli.py` — `ptl` CLI entry
 - `src/ptl/eval/` — scorer + eval runner + baselines A-D
@@ -26,6 +26,7 @@ pip install -e .
 ptl validate --doc path/to/doc.json
 ptl export --doc path/to/doc.json --out ledger.csv
 ptl eval --preds eval/preds.json --labels data/labels --faded-ids faded.txt
+ptl baseline --system a --images samples/ --out preds_a.json
 ptl review --queue review/ --pending
 make test
 ```

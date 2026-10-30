@@ -8,6 +8,7 @@ _SCHEMA_PATH = os.path.join(os.path.dirname(__file__), "extraction_schema.json")
 DOCUMENT_TYPES = {"invoice", "tax_invoice", "receipt", "combined", "credit_note",
                   "debit_note", "quotation", "delivery_note", "unknown"}
 FORMS = {"full", "abbreviated", "unknown"}
+STATUSES = {"paid", "unpaid", "partially_paid", "issued", "draft"}
 EMAIL_BLOCKLIST = {"noemail", "no-reply", "noreply", "none@", "test@", "-"}
 REQUIRED_TOP = ("schema_version", "document_type", "issuer", "totals")
 
@@ -31,6 +32,8 @@ def check_structure(doc):
         errors.append(f"bad document_type: {doc.get('document_type')!r}")
     if "form" in doc and doc["form"] not in FORMS:
         errors.append(f"bad form: {doc['form']!r}")
+    if "status" in doc and doc["status"] not in STATUSES:
+        errors.append(f"bad status: {doc['status']!r}")
     totals = doc.get("totals") or {}
     if "grand_total" not in totals:
         errors.append("missing totals.grand_total")
@@ -44,7 +47,7 @@ def check_structure(doc):
 
 
 def derive_claim_flag(doc):
-    """ABB slips cannot claim input VAT; derive the flag."""
+    """Only proven-full invoices claim input VAT; derive the flag."""
     doc = dict(doc)
-    doc["can_claim_input_vat"] = doc.get("form") != "abbreviated"
+    doc["can_claim_input_vat"] = doc.get("form") == "full"
     return doc

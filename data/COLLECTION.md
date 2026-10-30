@@ -30,6 +30,12 @@ currency. Prioritise these over more clean ABB slips.
    reappear in test (a Cafe Amazon slip in dev makes one in test easy).
 3. **Faded thermal needs 10–15 of the 50.** S5-style faded, creased slips
    are what real users photograph; report accuracy on them separately.
+   Seed judgment (contact sheet + zoomed crops, 2026-10-30): only S5 of
+   S1–S20 is truly faded print; S8/S11/S14/S15/S17/S19 were examined and
+   are dark print on gray/creased paper, not faded. S21–S23 examined
+   2026-10-30 (full views + S22 zooms): legible gray print, none
+   S5-level faded. Recorded in `data/faded.txt`; append test IDs as
+   the 150 grow.
 4. **Include multi-receipt photos** so segmentation is tested end to end.
 5. **Double-label ~20 receipts** (second file
    `labels/<id>.labeler-b.json`). Fields humans disagree on cannot be

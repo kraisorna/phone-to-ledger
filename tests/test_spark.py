@@ -13,6 +13,7 @@ import urllib.error
 from unittest import mock
 
 from ptl.adapters.spark import MODEL, PROMPT, SparkExtractor
+from ptl.pipeline.extract import normalize_keys
 from ptl.pipeline.segment import Crop
 from tests.fixtures import fresh
 
@@ -46,9 +47,35 @@ class TestSpark(unittest.TestCase):
                             _urlopen_ok(_doc(json.dumps(fresh())))):
                 doc, conf = ext.extract(img)
         self.assertEqual(doc["totals"]["grand_total"], 10700)
-        self.assertEqual(conf, {})
+        self.assertEqual(conf, fresh()["field_confidence"])
         self.assertEqual(doc["source"]["model"], MODEL)
         self.assertEqual(doc["source"]["kind"], "ocr")
+
+    def test_confidence_short_keys_normalized(self):
+        skel = dict(fresh(), field_confidence={
+            "grand_total": 0.99, "issuer_tax_id": 0.97,
+            "issue_date": 0.9, "line_items": 0.85})
+        ext = SparkExtractor(api_key="k")
+        with tempfile.TemporaryDirectory() as tmp:
+            img = _write(os.path.join(tmp, "r.jpg"))
+            with mock.patch("ptl.adapters.spark.urllib.request.urlopen",
+                            _urlopen_ok(_doc(json.dumps(skel)))):
+                doc, conf = ext.extract(img)
+        self.assertEqual(conf, {"totals.grand_total": 0.99,
+                                "issuer.tax_id": 0.97,
+                                "dates.issue_date": 0.9,
+                                "line_items": 0.85})
+
+    def test_confidence_drops_non_numeric(self):
+        skel = dict(fresh(), field_confidence={
+            "grand_total": "high", "issue_date": None, "vat_amount": True})
+        ext = SparkExtractor(api_key="k")
+        with tempfile.TemporaryDirectory() as tmp:
+            img = _write(os.path.join(tmp, "r.jpg"))
+            with mock.patch("ptl.adapters.spark.urllib.request.urlopen",
+                            _urlopen_ok(_doc(json.dumps(skel)))):
+                doc, conf = ext.extract(img)
+        self.assertEqual(conf, {})
 
     def test_request_shape(self):
         ext = SparkExtractor(api_key="k")
@@ -89,6 +116,51 @@ class TestSpark(unittest.TestCase):
                 SparkExtractor(api_key="k", temperature=None).extract(img)
             (req,), _ = opener.call_args
             self.assertNotIn("temperature", json.loads(req.data))
+
+    def test_reasoning_effort(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            img = _write(os.path.join(tmp, "r.jpg"))
+            opener = _urlopen_ok(_doc(json.dumps(fresh())))
+            with mock.patch("ptl.adapters.spark.urllib.request.urlopen",
+                            opener):
+                SparkExtractor(api_key="k").extract(img)
+            (req,), _ = opener.call_args
+            self.assertEqual(json.loads(req.data)["reasoning"],
+                             {"effort": "low"})
+            opener = _urlopen_ok(_doc(json.dumps(fresh())))
+            with mock.patch("ptl.adapters.spark.urllib.request.urlopen",
+                            opener):
+                SparkExtractor(api_key="k",
+                               reasoning_effort=None).extract(img)
+            (req,), _ = opener.call_args
+            self.assertNotIn("reasoning", json.loads(req.data))
+
+    def test_extract_postprocess_flag(self):
+        skel = {"schema_version": "1.0", "document_type": "receipt",
+                "issuer": {"legal_name": None, "brand_name": "Jones Salad",
+                           "tax_id": "0105559141754"},
+                "totals": {"grand_total": 20800},
+                "line_items": [{"description": "Name X2", "line_total": 100}]}
+        with tempfile.TemporaryDirectory() as tmp:
+            img = _write(os.path.join(tmp, "r.jpg"))
+            opener = _urlopen_ok(_doc(json.dumps(skel)))
+            with mock.patch("ptl.adapters.spark.urllib.request.urlopen",
+                            opener):
+                raw, _ = SparkExtractor(api_key="k").extract(
+                    img, postprocess=False)
+            opener = _urlopen_ok(_doc(json.dumps(skel)))
+            with mock.patch("ptl.adapters.spark.urllib.request.urlopen",
+                            opener):
+                doc, _ = SparkExtractor(api_key="k").extract(img)
+        (line,) = raw["line_items"]
+        self.assertEqual(line["description"], "Name X2")
+        self.assertNotIn("quantity", line)
+        self.assertIsNone(raw["issuer"]["legal_name"])
+        self.assertNotIn("currency", raw)
+        (line,) = doc["line_items"]
+        self.assertEqual(line["description"], "Name")
+        self.assertEqual(line["quantity"], 2)
+        self.assertEqual(doc["issuer"]["legal_name"], "Jones Salad")
 
     def test_retry_then_success(self):
         ext = SparkExtractor(api_key="k")
@@ -133,7 +205,7 @@ class TestSpark(unittest.TestCase):
                             "era_resolution ": {"detected_era": "AD"}},
                  "totals": {"grand_total": 100},
                  "dup ": 1, "dup": 2}
-        clean = SparkExtractor._normalize_keys(messy)
+        clean = normalize_keys(messy)
         self.assertEqual(clean["dates"]["issue_date"], "2026-08-28")
         self.assertEqual(clean["dates"]["era_resolution"]["detected_era"],
                          "AD")
@@ -223,6 +295,33 @@ class TestSpark(unittest.TestCase):
         self.assertEqual(ext.stats["input_tokens"], 2400)
         self.assertEqual(ext.stats["output_tokens"], 600)
         self.assertGreaterEqual(ext.stats["seconds"], 0)
+
+    def test_default_timeout_is_patient(self):
+        # Observed server latency peaks at 257s against a 300s limit;
+        # S5/S6 timed out twice and an S1 probe once at 300 while 600s
+        # overrides succeeded. SAM stays at 300: it answers fast.
+        self.assertEqual(SparkExtractor(api_key="k").timeout, 600)
+
+    def test_image_uri_stamped_from_path(self):
+        # Ledger audit trail: the adapter knows the true filename, so a
+        # model-hallucinated image_uri must not survive (fresh() carries
+        # "s1.jpg"; the tmp file proves the overwrite).
+        ext = SparkExtractor(api_key="k")
+        with tempfile.TemporaryDirectory() as tmp:
+            img = _write(os.path.join(tmp, "receipt-9.jpg"))
+            with mock.patch("ptl.adapters.spark.urllib.request.urlopen",
+                            _urlopen_ok(_doc(json.dumps(fresh())))):
+                doc, _ = ext.extract(img)
+        self.assertEqual(doc["source"]["image_uri"], "receipt-9.jpg")
+
+    def test_image_uri_absent_for_bytes(self):
+        skel = fresh()
+        del skel["source"]["image_uri"]
+        ext = SparkExtractor(api_key="k")
+        with mock.patch("ptl.adapters.spark.urllib.request.urlopen",
+                        _urlopen_ok(_doc(json.dumps(skel)))):
+            doc, _ = ext.extract(b"\xff\xd8\xff fake-jpeg")
+        self.assertNotIn("image_uri", doc["source"])
 
     def test_auth_and_entitlement_errors(self):
         ext = SparkExtractor(api_key="k")
