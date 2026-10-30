@@ -23,5 +23,11 @@ data/labels/
 # Export outputs
 *.xlsx
 
+# Runtime artifacts (regenerable; never commit). Anchored at root so
+# demo/ fixtures (demo/ledger.csv, demo/review/) stay committable.
+/review/
+/seen.json
+/ledger.csv
+
 # macOS
 .DS_Store
