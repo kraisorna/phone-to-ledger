@@ -32,6 +32,8 @@ make test                 # unittest discover — keep this green
 make lint                 # compileall over src + tests
 ptl validate --doc doc.json [--seen seen.json] [--force]
 ptl export --doc doc.json [...] --out ledger.csv [--seen seen.json] [--append]
+ptl e2e image.jpg --out result.json --csv ledger.csv [--seen seen.json]
+  [--concept receipt] [--api-key ...]
 ptl eval --preds preds.json --labels data/labels --faded-ids faded.txt
 ptl baseline --system {a,b,c,d} --images imgdir --out preds.json
 ptl review --queue review/ --pending   # or --show/--resolve/--export-labels
@@ -39,8 +41,8 @@ ptl ingest image.jpg
 ```
 
 Exits: `validate` → 2 when human review needed; `export` → 3 when every
-doc was excluded as duplicate. No `segment`/`extract` CLI yet — adapters
-are used programmatically.
+doc was excluded as duplicate; `e2e` → 2 needs review, 3 no rows, 4 no
+receipts found.
 
 ## Hard invariants (do not break)
 
@@ -65,10 +67,11 @@ are used programmatically.
 
 ## Adapters
 
-- Cloud (`sam31`, `spark`) needs `MODEL_API_KEY` in the environment (or
-  `api_key=...`); there is no `.env` loader, so `set -a; source .env;
-  set +a` first. Both are live-verified against `https://api.meta.ai/v1`
-  (`sam-3.1`, `muse-spark-1.3`).
+- Cloud (`sam31`, `spark`) resolves `MODEL_API_KEY` via
+  `ptl.adapters.env.resolve_secret`: explicit `api_key=` first, then
+  process env, then nearest `.env` walking up from cwd. No manual
+  export needed. Both are live-verified against
+  `https://api.meta.ai/v1` (`sam-3.1`, `muse-spark-1.3`).
 - `sam31`: one image + concept `"receipt"` → one Crop per box, polygons
   in source pixels. Raises loudly on 401/404/grammar drift.
 - `spark`: structured-output extraction → `(doc, {})`. Whole source

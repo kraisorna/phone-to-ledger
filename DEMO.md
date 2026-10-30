@@ -7,7 +7,7 @@ Meta models: SAM 3.1 (segment) + Muse Spark (extract) via Meta Model API.
 
 ```sh
 pip install -e .
-set -a; source .env; set +a   # MODEL_API_KEY, never on camera
+# MODEL_API_KEY resolves from env or .env automatically (never on camera)
 ```
 
 ## Script (3:00 total)
@@ -24,9 +24,7 @@ Run the core path on the sample receipt (TODO: add
 
 ```sh
 ptl ingest demo/sample.jpg
-PYTHONPATH=src python3 -m ptl.demo_e2e demo/sample.jpg --out demo/out.json  # TODO: wire CLI
-ptl validate --doc demo/out.json
-ptl export --doc demo/out.json --out demo/ledger.csv
+ptl e2e demo/sample.jpg --out demo/out.json --csv demo/ledger.csv
 ```
 
 Until the e2e CLI lands, the shippable live beats are fixture-backed:
@@ -68,6 +66,6 @@ screenshot the CSV.
 - [ ] `demo/sample.jpg`: one clean Thai receipt photo + `demo/expected.csv`
 - [ ] `demo/s1.json`: S1 fixture dumped from `tests/fixtures.py`
 - [ ] `demo/bad_sum.json`: S1 with a corrupted total (trust beat)
-- [ ] e2e entry point (segment→extract→validate→export in one command)
+- [x] e2e entry point (`ptl e2e`: segment→extract→validate→export in one command)
 - [ ] `demo/recorded_run.txt` fallback capture
 - [ ] Record + edit the 3-minute video (primary judging artifact)
