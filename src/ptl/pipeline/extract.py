@@ -3,15 +3,24 @@
 The VLM call lives in adapters (spark/glimmer); this module holds
 prompt rules and post-processing shared by every extractor:
   - V/N/E suffix stripping, modifier attachment notes
+  - payment method normalisation (raw tender text -> vocabulary)
   - POS identifier normalisation (E + 12-or-more alnum, never clipped)
   - 2-digit BE year stays ambiguous without an anchor
 """
 import re
 
 # 02 §9's prose says "E + 12" but its own four examples are E + 14, as
-# are all six observed stamps (S1/S2/S4/S5/S6/S22). Match the full run
-# from a token start: clipping a stamp corrupts R10 fuzzy dedup keys.
+# are all seven observed stamps (S1/S2/S4/S5/S6/S9/S22). Match the full
+# run from a token start: clipping a stamp corrupts R10 fuzzy dedup
+# keys.
 POS_RE = re.compile(r"(?<![0-9A-Za-z])E[0-9A-Za-z]{12,}")
+# S9 prints the vendor's own grouping spaced ("E 05 20100 02 A3693"):
+# all seven joined stamps segment 2-5-2-5, so accept exactly that shape
+# with strict token boundaries on both ends. Anything else spaced is
+# not a stamp (None, never a clip or a glued neighbour word).
+POS_SPACED_RE = re.compile(r"(?<![0-9A-Za-z])E[ ]+[0-9A-Za-z]{2}"
+                           r"[ ]+[0-9A-Za-z]{5}[ ]+[0-9A-Za-z]{2}"
+                           r"[ ]+[0-9A-Za-z]{5}(?![0-9A-Za-z])")
 LINE_FLAG_RE = re.compile(r"\s*([VNE])\s*$")
 QTY_EMBEDDED_RE = re.compile(r"[xX×]\s*(\d+(?:\.\d+)?)\s*$")
 
@@ -67,14 +76,59 @@ def split_embedded_qty(description):
 
 def normalise_pos_identifier(text):
     m = POS_RE.search(text or "")
-    return m.group(0) if m else None
+    if m:
+        return m.group(0)
+    m = POS_SPACED_RE.search(text or "")
+    return m.group(0).replace(" ", "") if m else None
+
+
+def normalise_payment_method(method_raw, fallback=None):
+    """Map printed tender text to the controlled method vocabulary.
+
+    Live models phrase `method` freely (S1 live emitted "qr"/"other"
+    for S1's gold "qr_promptpay"/"voucher_discount"), while the ledger
+    and eval need comparable values. Map off the verbatim raw string;
+    unknown tender text keeps the model's value: never invent a method.
+    """
+    text = (method_raw or "").lower()
+    if "bank" in text and "qr" in text:
+        return "bank_qr"
+    if "qr" in text or "promptpay" in text or "promptp" in text:
+        return "qr_promptpay"
+    if ("mastercard" in text or "visa" in text
+            or re.search(r"\bmc\b", text)):
+        return "credit_card"
+    if "truemoney" in text or "ทรู" in text:
+        return "truemoney_wallet"
+    if "mobile payment" in text:
+        return "mobile_payment"
+    if "stored" in text and "value" in text:
+        return "stored_value_redeem"
+    if "ส่วนลด" in text or "discount" in text:
+        return "voucher_discount"
+    if "cash" in text or "เงินสด" in text:
+        return "cash"
+    if "card" in text:
+        return "card"
+    return fallback
+
+
+_KEY_EDGE_RE = re.compile(r"^[\s\x00-\x1f\x7f-\x9f]+|"
+                              r"[\s\x00-\x1f\x7f-\x9f]+$")
+
+
+def _clean_key(key):
+    """Strip edge whitespace and control chars from a dict key."""
+    return _KEY_EDGE_RE.sub("", key)
 
 
 def normalize_keys(node):
-    """Strip whitespace from dict keys, recursively.
+    """Strip whitespace and control chars from dict keys, recursively.
 
     Constrained decoding occasionally emits 'dates '-style duplicate
-    keys (seen 1/20 live). Exact keys win on collision; spaced dupes
+    keys (seen 1/20 live), and once NUL-suffixed keys ('dates\\0',
+    'currency\\0' + 'currency\\x01') that silently dropped fields until
+    R1 blocked the row. Exact keys win on collision; stripped dupes
     fill only absent keys. Never mutates the input.
     """
     if isinstance(node, list):
@@ -82,10 +136,10 @@ def normalize_keys(node):
     if not isinstance(node, dict):
         return node
     out = {k: normalize_keys(v) for k, v in node.items()
-           if not isinstance(k, str) or k == k.strip()}
+           if not isinstance(k, str) or k == _clean_key(k)}
     for key, value in node.items():
-        if isinstance(key, str) and key != key.strip():
-            out.setdefault(key.strip(), normalize_keys(value))
+        if isinstance(key, str) and key != _clean_key(key):
+            out.setdefault(_clean_key(key), normalize_keys(value))
     return out
 
 
@@ -124,6 +178,14 @@ def _default_quantity(line):
     out = dict(line)
     out["quantity"] = 1
     out["quantity_source"] = "assumed"
+    return out
+
+
+def _normalise_payment(pay):
+    """Map one payment's method off its raw text; copies, never mutates."""
+    out = dict(pay)
+    out["method"] = normalise_payment_method(
+        pay.get("method_raw"), pay.get("method"))
     return out
 
 
@@ -209,6 +271,11 @@ def build_document(skeleton):
         doc["line_items"] = [
             _default_quantity(_strip_embedded_qty(li))
             if isinstance(li, dict) else li for li in lines]
+    payments = doc.get("payments")
+    if payments:
+        doc["payments"] = [
+            _normalise_payment(p) if isinstance(p, dict) else p
+            for p in payments]
     if totals.get("subtotal") is None:
         inferred = _infer_subtotal(doc.get("line_items"), totals)
         if inferred is not None:

@@ -73,6 +73,61 @@ class TestSeenStore(unittest.TestCase):
         self.assertTrue(v["rules"]["R10"]["pass"])
 
 
+class TestRephotoPairs(unittest.TestCase):
+    def _rephoto(self, seed, uri, img_hash):
+        # Same slip content under a new photo: zoom-verified for
+        # both pairs, so only the source block changes.
+        doc = fresh_seed(seed)
+        doc["source"] = {"kind": "ocr", "image_uri": uri,
+                         "image_hash": img_hash, "model": "hand-label"}
+        return doc
+
+    def test_s22_s27_rephoto_caught_by_tax_doc_key(self):
+        # S27 is a re-photo of S22's slip (same R#, datetime,
+        # items, totals). New image hash: the (tax_id,
+        # document_number) key must still fire.
+        store = SeenStore()
+        store.record(fresh_seed("S22"))
+        v = validate(
+            self._rephoto("S22", "s27.jpg", "placeholder-hash-s27"),
+            store.to_seen())
+        self.assertFalse(v["rules"]["R10"]["pass"])
+        self.assertIn("tax_id, document_number",
+                      v["rules"]["R10"]["detail"])
+
+    def test_s23_s26_rephoto_caught_by_seller_name_key(self):
+        # S26 is a re-photo of S23's slip, but S23 prints no tax
+        # ID and no resolvable date, so both spec keys are None
+        # and the old code let the re-photo through. The
+        # (seller_name, document_number) fallback must fire.
+        store = SeenStore()
+        store.record(fresh_seed("S23"))
+        v = validate(
+            self._rephoto("S23", "s26.jpg", "placeholder-hash-s26"),
+            store.to_seen())
+        self.assertFalse(v["rules"]["R10"]["pass"])
+        self.assertIn("seller_name, document_number",
+                      v["rules"]["R10"]["detail"])
+
+    def test_seller_name_key_ignores_case_and_spacing(self):
+        store = SeenStore()
+        store.record(fresh_seed("S23"))
+        other = self._rephoto("S23", "s26.jpg", "placeholder-hash-s26")
+        other["issuer"]["legal_name"] = "  Oasis   COFFEE "
+        v = validate(other, store.to_seen())
+        self.assertFalse(v["rules"]["R10"]["pass"])
+
+    def test_seller_name_key_needs_same_receipt_number(self):
+        # Same seller, different receipt: not a duplicate.
+        store = SeenStore()
+        store.record(fresh_seed("S23"))
+        other = self._rephoto("S23", "other.jpg",
+                              "placeholder-hash-other")
+        other["document_number"] = "1RC102569/008593"
+        v = validate(other, store.to_seen())
+        self.assertTrue(v["rules"]["R10"]["pass"])
+
+
 class TestSeenCli(unittest.TestCase):
     def _doc(self, tmp, doc=None):
         path = os.path.join(tmp, "doc.json")

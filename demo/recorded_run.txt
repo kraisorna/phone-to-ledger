@@ -1,0 +1,289 @@
+$ ptl e2e demo/sample.jpg --out demo/out.json --csv demo/ledger.csv
+(recorded live run, exit=0; all R1-R14 pass, auto_accept, 15/16 columns match expected)
+
+{
+  "image": "demo/sample.jpg",
+  "ingest": {
+    "image_hash": "bdc52c0e770d4705c867b51a4a2d17d951b0557904931096e786accddc6641a1",
+    "size_bytes": 2452647,
+    "source_path": "demo/sample.jpg",
+    "path": "demo/sample.jpg",
+    "exif_stripped": false,
+    "note": "strip EXIF with Pillow before persisting"
+  },
+  "crops": [
+    {
+      "index": 0,
+      "polygon": [
+        [
+          0,
+          0
+        ],
+        [
+          1746,
+          0
+        ],
+        [
+          1746,
+          3464
+        ],
+        [
+          0,
+          3464
+        ]
+      ],
+      "deskewed": false,
+      "enhanced_for_faded": false,
+      "partial": false,
+      "quality": {},
+      "image_path": "demo/sample.jpg"
+    }
+  ],
+  "docs": [
+    {
+      "crop_index": 0,
+      "doc": {
+        "can_claim_input_vat": false,
+        "counterparty": {
+          "address": null,
+          "branch_code": null,
+          "branch_name": null,
+          "brand_name": null,
+          "email": null,
+          "email_is_placeholder": false,
+          "is_individual": false,
+          "legal_name": null,
+          "phone": null,
+          "tax_id": null,
+          "vat_registered": null
+        },
+        "currency": "THB",
+        "dates": {
+          "due_date": null,
+          "era_resolution": {
+            "anchor_used": null,
+            "detected_era": "BE",
+            "year_digits": 4
+          },
+          "issue_date": "2026-08-27",
+          "printed_at": null,
+          "raw_date_string": "27/08/2569 15:14",
+          "tax_point_date": "2026-08-27"
+        },
+        "discarded_text": [
+          "Balance Points 190",
+          "Reward Points 2",
+          "Total Earned Today 2 Points",
+          "Card No. XXXX XXXX 3423 1665",
+          "1365 Contact Center",
+          "PTT Station Free Wifi Password: SUJAVW9YZ6X"
+        ],
+        "document_number": "2083RC082569/005087",
+        "document_type": "combined",
+        "field_confidence": {
+          "branch_code": 0.98,
+          "document_number": 0.97,
+          "grand_total": 0.99,
+          "issue_date": 0.98,
+          "issuer_tax_id": 0.99
+        },
+        "form": "abbreviated",
+        "issuer": {
+          "address": null,
+          "branch_code": "00031",
+          "branch_name": "(สน.สุทธิสาร)",
+          "brand_name": "Cafe Amazon",
+          "email": null,
+          "email_is_placeholder": false,
+          "is_individual": false,
+          "legal_name": "บมจ.ปตท. น้ำมันและการค้าปลีก",
+          "phone": null,
+          "tax_id": "0107561000013",
+          "vat_registered": true
+        },
+        "line_items": [
+          {
+            "description": "TW น้ำลิ้นจี่ เย็น",
+            "is_category_subtotal": false,
+            "is_modifier": false,
+            "is_section_header": false,
+            "line_number": 1,
+            "line_total": 4500,
+            "parent_line_number": null,
+            "quantity": 1,
+            "quantity_source": "column",
+            "supply_type": "goods",
+            "unit": null,
+            "unit_price": 4500,
+            "vat_flag": "unknown"
+          },
+          {
+            "description": "- TW หวานน้อย 50%",
+            "is_category_subtotal": false,
+            "is_modifier": true,
+            "is_section_header": false,
+            "line_number": 2,
+            "line_total": 0,
+            "parent_line_number": 1,
+            "quantity": 1,
+            "quantity_source": "column",
+            "supply_type": "goods",
+            "unit": null,
+            "unit_price": 0,
+            "vat_flag": "unknown"
+          }
+        ],
+        "payments": [
+          {
+            "amount": 3500,
+            "card_mask": null,
+            "card_mask_position": "unknown",
+            "external_ref": "promptpay\\APIC1787818440425NZX",
+            "method": "qr_promptpay",
+            "method_raw": "QRPayment(API)",
+            "paid_at": null
+          },
+          {
+            "amount": 1000,
+            "card_mask": null,
+            "card_mask_position": "unknown",
+            "external_ref": null,
+            "method": "voucher_discount",
+            "method_raw": "ส่วนลด 10 บาท AIS",
+            "paid_at": null
+          }
+        ],
+        "pos_identifier": "E020100002A2158",
+        "qr_codes": [],
+        "references_document_id": null,
+        "schema_version": "1.0",
+        "source": {
+          "extracted_at": null,
+          "image_hash": null,
+          "image_quality": {
+            "blur_score": 0,
+            "contrast_score": 0,
+            "passed_gate": true,
+            "skew_degrees": 0
+          },
+          "image_uri": "sample.jpg",
+          "kind": "ocr",
+          "model": "muse-spark-1.3",
+          "crop_index": 0
+        },
+        "status": "paid",
+        "totals": {
+          "discount_total": 0,
+          "grand_total": 4500,
+          "non_vatable_amount": 0,
+          "rounding_adjustment": 0,
+          "service_charge": 0,
+          "subtotal": 4500,
+          "total": 4500,
+          "vat_amount": 294,
+          "vat_amount_computed": 294,
+          "vatable_amount": 4206
+        },
+        "validation": {
+          "requires_human_review": false,
+          "review_reasons": [],
+          "rules": {}
+        },
+        "vat_mode": "inclusive",
+        "vat_rate_bp": 700
+      },
+      "structure_errors": [],
+      "validation": {
+        "rules": {
+          "R1": {
+            "pass": true,
+            "detail": "lines-discount_total+rounding_adjustment=4500 subtotal=4500"
+          },
+          "R10": {
+            "pass": true,
+            "detail": "no duplicate keys"
+          },
+          "R11": {
+            "pass": true,
+            "detail": "no suspicious signals"
+          },
+          "R12": {
+            "pass": true,
+            "detail": "confidence ok"
+          },
+          "R13": {
+            "pass": true,
+            "detail": "grand, lines, and date present"
+          },
+          "R14": {
+            "pass": true,
+            "detail": "form abbreviated"
+          },
+          "R2": {
+            "pass": true,
+            "detail": "subtotal+svc=4500 grand=4500"
+          },
+          "R3": {
+            "pass": true,
+            "detail": "vat_amount=294 computed=294"
+          },
+          "R4": {
+            "pass": true,
+            "detail": "vatable_amount+vat_amount+nonvat=4500 grand=4500"
+          },
+          "R5": {
+            "pass": true,
+            "detail": "payments=4500 grand=4500"
+          },
+          "R6": {
+            "pass": true,
+            "detail": "tax_id 0107561000013 checksum ok"
+          },
+          "R7": {
+            "pass": true,
+            "detail": "issue 2026-08-27 ok"
+          },
+          "R8": {
+            "pass": true,
+            "detail": "modifiers ok"
+          },
+          "R9": {
+            "pass": true,
+            "detail": "category subtotals ok"
+          }
+        },
+        "requires_human_review": false,
+        "review_reasons": [],
+        "hard_failed": []
+      },
+      "triage": {
+        "decision": "auto_accept",
+        "reason": "all rules pass",
+        "suggested_regions": []
+      },
+      "excluded": ""
+    }
+  ],
+  "rows": [
+    {
+      "date": "2026-08-27",
+      "document_number": "2083RC082569/005087",
+      "document_type": "combined",
+      "form": "abbreviated",
+      "can_claim_input_vat": "no",
+      "seller_legal_name": "บมจ.ปตท. น้ำมันและการค้าปลีก",
+      "seller_tax_id": "0107561000013",
+      "branch_code": "00031",
+      "vatable": "42.06",
+      "vat": "2.94",
+      "non_vatable": "0.00",
+      "grand_total": "45.00",
+      "payment_method": "qr_promptpay+voucher_discount",
+      "review_status": "auto_accept",
+      "source_image_ref": "sample.jpg",
+      "note": ""
+    }
+  ],
+  "csv": "date,document_number,document_type,form,can_claim_input_vat,seller_legal_name,seller_tax_id,branch_code,vatable,vat,non_vatable,grand_total,payment_method,review_status,source_image_ref,note\r\n2026-08-27,2083RC082569/005087,combined,abbreviated,no,บมจ.ปตท. น้ำมันและการค้าปลีก,0107561000013,00031,42.06,2.94,0.00,45.00,qr_promptpay+voucher_discount,auto_accept,sample.jpg,\r\n",
+  "note": ""
+}exit=0

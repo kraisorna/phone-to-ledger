@@ -176,15 +176,15 @@ class TestSeedScoring(unittest.TestCase):
             with open(faded_p, "w", encoding="utf-8") as f:
                 f.write("S5\n")
             report = run_eval(preds_p, labels_d, faded_p)
-            self.assertEqual(report["overall"]["n"], 12)
-            self.assertEqual(report["overall"]["doc_all_correct"], 12)
-            # S2 and S7-S9 have no VAT line: totals.vat_amount scores
-            # over 8 docs.
+            self.assertEqual(report["overall"]["n"], 22)
+            self.assertEqual(report["overall"]["doc_all_correct"], 22)
+            # S2, S7-S9, S11 and S15-S17 have no VAT line:
+            # totals.vat_amount scores over 14 docs.
             overall = report["overall"]
-            self.assertEqual(overall["per_field_n"]["totals.vat_amount"], 8)
-            self.assertEqual(overall["per_field_counts"]["totals.vat_amount"], 8)
+            self.assertEqual(overall["per_field_n"]["totals.vat_amount"], 14)
+            self.assertEqual(overall["per_field_counts"]["totals.vat_amount"], 14)
             self.assertEqual(overall["per_field_n"]["totals.grand_total"],
-                             12)
+                             22)
             self.assertEqual(report["missing_preds"], [])
             self.assertEqual(report["faded"]["n"], 1)
             self.assertEqual(report["faded"]["doc_all_correct"], 1)
@@ -193,9 +193,9 @@ class TestSeedScoring(unittest.TestCase):
             with open(preds_p, "w", encoding="utf-8") as f:
                 json.dump(preds, f)
             report = run_eval(preds_p, labels_d, faded_p)
-            self.assertEqual(report["overall"]["doc_all_correct"], 11)
+            self.assertEqual(report["overall"]["doc_all_correct"], 21)
             counts = report["overall"]["per_field_counts"]
-            self.assertEqual(counts["totals.grand_total"], 11)
+            self.assertEqual(counts["totals.grand_total"], 21)
 
 
 class TestS22SevenSecondSlip(unittest.TestCase):
@@ -458,6 +458,511 @@ class TestS9DairyQueen(unittest.TestCase):
         v = validate(doc)
         self.assertEqual(failed_rules(v), [])
         self.assertEqual(triage(doc, v)["decision"], "auto_accept")
+
+
+class TestS10Tsuruha(unittest.TestCase):
+    def test_negative_promo_rows_are_lines(self):
+        # The B1G1 pair and the Biore promo print as rows with
+        # negative amounts: they sum into R1 as lines, not as
+        # discount_total (which stays 0: no such row is printed).
+        doc = fresh_seed("S10")
+        lines = doc["line_items"]
+        self.assertEqual(len(lines), 6)
+        self.assertEqual(
+            [li["line_total"] for li in lines],
+            [12500, -6250, 12500, -6250, 29900, -6000])
+        self.assertEqual(doc["totals"]["discount_total"], 0)
+        v = validate(doc)
+        self.assertTrue(v["rules"]["R1"]["pass"])
+
+    def test_printed_vat_split_exact(self):
+        # First seed with printed Vatable/VAT rows: 340.19 + 23.81 =
+        # 364.00 and the VAT exactly matches round(36400*7/107).
+        doc = fresh_seed("S10")
+        self.assertEqual(doc["totals"]["vatable_amount"], 34019)
+        self.assertEqual(doc["totals"]["vat_amount"], 2381)
+        self.assertEqual(doc["totals"]["vat_amount_computed"], 2381)
+        v = validate(doc)
+        self.assertTrue(v["rules"]["R3"]["pass"])
+        self.assertTrue(v["rules"]["R4"]["pass"])
+
+    def test_ddmm_by_clock_and_no_stamp(self):
+        # 24-hour 16:10 clock means Thai-locale DD/MM (unlike S9's
+        # 12-hour US clock), corroborated by 2609 inside the NO stamp.
+        doc = fresh_seed("S10")
+        self.assertEqual(doc["dates"]["issue_date"], "2026-09-06")
+        self.assertIn("2609", doc["document_number"])
+        v = validate(doc)
+        self.assertTrue(v["rules"]["R7"]["pass"])
+
+    def test_traps_discarded_pii_omitted(self):
+        # Count row, points figures, relative periods are traps; the
+        # member and salesperson names stay out of the fixture (PII).
+        doc = fresh_seed("S10")
+        self.assertIn("Total 3.00 Items", doc["discarded_text"])
+        self.assertIn("0 18 72 -", doc["discarded_text"])
+        self.assertIn("***รับคืนหรือเปลี่ยนสินค้าภายใน 7 วัน***",
+                      doc["discarded_text"])
+        blob = json.dumps(doc, ensure_ascii=False)
+        self.assertNotIn("ไกรสร", blob)
+        self.assertNotIn("วิรดา", blob)
+        v = validate(doc)
+        self.assertEqual(failed_rules(v), [])
+        self.assertEqual(triage(doc, v)["decision"], "auto_accept")
+
+
+class TestS11PaBoonCafe(unittest.TestCase):
+    def test_total_subtotal_grand_chain(self):
+        # The totals.total resolution, pinned on real rows: total is
+        # the gross line sum, subtotal the net before service, grand
+        # the final. R1 and R2 pass on the resolved chain.
+        doc = fresh_seed("S11")
+        t = doc["totals"]
+        self.assertEqual(t["total"], 53500)
+        self.assertEqual(t["discount_total"], 4950)
+        self.assertEqual(t["rounding_adjustment"], 50)
+        self.assertEqual(t["subtotal"], 48600)
+        self.assertEqual(t["grand_total"], 48600)
+        v = validate(doc)
+        self.assertTrue(v["rules"]["R1"]["pass"])
+        self.assertTrue(v["rules"]["R2"]["pass"])
+
+    def test_discount_base_is_food_only(self):
+        # 49.50 is 10% of the FOOD 495.00, not of the 535.00 total:
+        # misreading the base breaks the chain by 4.00.
+        doc = fresh_seed("S11")
+        food = doc["line_items"][0]["line_total"]
+        self.assertEqual(food, 49500)
+        self.assertEqual(doc["totals"]["discount_total"], food // 10)
+        self.assertNotEqual(doc["totals"]["discount_total"],
+                            doc["totals"]["total"] // 10)
+
+    def test_category_headers_flagged_not_summed(self):
+        # อาหาร/เครื่องดื่ม headers precede their items and carry no
+        # quantity; flagged, R1 excludes them from the charge sum.
+        doc = fresh_seed("S11")
+        cats = [li for li in doc["line_items"]
+                if li.get("is_category_subtotal")]
+        self.assertEqual(len(cats), 2)
+        for cat in cats:
+            self.assertNotIn("quantity", cat)
+        self.assertEqual(sum(li["line_total"] for li in
+                             doc["line_items"] if not li.get(
+                                 "is_category_subtotal")), 53500)
+        v = validate(doc)
+        self.assertTrue(v["rules"]["R9"]["pass"])
+
+    def test_short_branch_code_and_form_need_review(self):
+        # Branch "3" is genuinely printed but trips R11's 4-5 digit
+        # convention; with R14 both fire soft, like S3's R11.
+        doc = fresh_seed("S11")
+        self.assertEqual(doc["issuer"]["branch_code"], "3")
+        self.assertEqual(doc["status"], "unpaid")
+        self.assertIsNone(doc["document_number"])
+        v = validate(doc)
+        self.assertEqual(failed_rules(v), ["R11", "R14"])
+        self.assertEqual(v["hard_failed"], [])
+        self.assertEqual(triage(doc, v)["decision"], "needs_review")
+        blob = json.dumps(doc, ensure_ascii=False)
+        self.assertNotIn("2066268766275002", blob)
+        self.assertNotIn("ไกรสร", blob)
+
+
+class TestS12StarbucksMisprint(unittest.TestCase):
+    def test_one_digit_misprint_hard_blocks_r6(self):
+        # ...6688 vs S4's ...8688: a single printed digit breaks the
+        # checksum, and R6 must hard-fail true gold (first blocked
+        # seed) while S4's ID keeps passing.
+        bad = fresh_seed("S12")["issuer"]["tax_id"]
+        good = fresh_seed("S4")["issuer"]["tax_id"]
+        self.assertEqual(
+            sum(a != b for a, b in zip(bad, good)), 1)
+        v = validate(fresh_seed("S12"))
+        self.assertFalse(v["rules"]["R6"]["pass"])
+        self.assertEqual(v["hard_failed"], ["R6"])
+        self.assertTrue(validate(fresh_seed("S4"))["rules"]["R6"]["pass"])
+
+    def test_ambiguous_date_mirrors_s4(self):
+        # "Sep09 26" carries the same unresolvable 2-digit year as
+        # S4's "Aug28 26": null issue, ambiguous era, R7+R13 fail.
+        doc = fresh_seed("S12")
+        self.assertIsNone(doc["dates"]["issue_date"])
+        self.assertEqual(doc["dates"]["era_resolution"]["detected_era"],
+                         "ambiguous")
+        v = validate(doc)
+        self.assertFalse(v["rules"]["R7"]["pass"])
+        self.assertFalse(v["rules"]["R13"]["pass"])
+        self.assertEqual(failed_rules(v), ["R13", "R6", "R7"])
+        t = triage(doc, v)
+        self.assertEqual(t["decision"], "needs_review")
+        self.assertIn("R6", t["reason"])
+
+    def test_amount_first_vat_and_abb_number(self):
+        # "1.64 VAT TTL" prints the VAT amount first with a 25.00
+        # total echo beside it; the ABB invoice number (not Chk) is
+        # the document number, as on S4.
+        doc = fresh_seed("S12")
+        self.assertEqual(doc["totals"]["vat_amount"], 164)
+        self.assertEqual(doc["totals"]["vatable_amount"], 2336)
+        self.assertEqual(doc["document_number"], "260909-01-08576")
+        self.assertIn("Chk 0100339186", doc["discarded_text"])
+        v = validate(doc)
+        self.assertTrue(v["rules"]["R3"]["pass"])
+        self.assertTrue(v["rules"]["R4"]["pass"])
+
+    def test_loyalty_traps_and_pii_omitted(self):
+        doc = fresh_seed("S12")
+        for trap in ("Card Balance is 1800.00 THB", "21Aug27",
+                     "13Sep26", "31Dec26", "OTKIOHSLFT"):
+            self.assertIn(trap, doc["discarded_text"])
+        blob = json.dumps(doc, ensure_ascii=False)
+        self.assertNotIn("Kraisorn", blob)
+
+
+class TestS13Watsons(unittest.TestCase):
+    def test_per_line_rounding_within_tolerance(self):
+        # POS rounds VAT per line (164 x 2 = 328), the pipeline on
+        # the grand (327): R3's +-1 absorbs exactly this policy gap.
+        doc = fresh_seed("S13")
+        self.assertEqual(doc["totals"]["vat_amount"], 328)
+        self.assertEqual(doc["totals"]["vat_amount_computed"], 327)
+        self.assertEqual(doc["totals"]["vatable_amount"], 4672)
+        v = validate(doc)
+        self.assertTrue(v["rules"]["R3"]["pass"])
+        self.assertTrue(v["rules"]["R4"]["pass"])
+
+    def test_sku_strips_t_flag_unknown(self):
+        # Leading SKU codes live in description_raw, not the name;
+        # the T taxable flag is outside the V/N/E vocabulary.
+        lines = fresh_seed("S13")["line_items"]
+        self.assertEqual(lines[0]["description"], "#HDBRPMNightRepa@")
+        self.assertEqual(lines[0]["description_raw"],
+                         "311773 #HDBRPMNightRepa@")
+        self.assertEqual(lines[1]["description"], "#HadabireiPr@")
+        for li in lines:
+            self.assertEqual(li["vat_flag"], "unknown")
+
+    def test_receipt_number_decomposes(self):
+        # #604002090920260005 = store 604 + terminal 002 + date
+        # 09092026 + seq 0005, fixing branch_code "00604".
+        doc = fresh_seed("S13")
+        num = doc["document_number"]
+        self.assertEqual(num, "604002090920260005")
+        self.assertTrue(num.startswith("604002"))
+        self.assertIn("09092026", num)
+        self.assertTrue(num.endswith("0005"))
+        self.assertEqual(doc["issuer"]["branch_code"], "00604")
+        v = validate(doc)
+        self.assertEqual(failed_rules(v), [])
+        self.assertEqual(triage(doc, v)["decision"], "auto_accept")
+
+    def test_traps_and_call_center_not_phone(self):
+        # Count, change, eStamp/loyalty figures, terminal refs and
+        # the barcode are traps; the call-center Tel is not the
+        # issuer phone, and the cashier name stays out (PII).
+        doc = fresh_seed("S13")
+        for trap in ("2", "CHANGE 0.00",
+                     "Opening eStamp Balance 10",
+                     "Loyalty acc.number 9930840801***",
+                     "Tel: 02-0178899", "TID# 73906252",
+                     "TRACE# 138340", "870604021403220260909"):
+            self.assertIn(trap, doc["discarded_text"])
+        self.assertNotIn("phone", doc["issuer"])
+        blob = json.dumps(doc, ensure_ascii=False)
+        self.assertNotIn("Kuhaiiii", blob)
+
+
+class TestS14JonesDelivery(unittest.TestCase):
+    def test_header_modifier_and_charges(self):
+        # ** delivery section header (0) plus a 0.00 side-note
+        # modifier on the steak; charges are 110 + 139 = 249.
+        lines = fresh_seed("S14")["line_items"]
+        self.assertTrue(lines[0]["is_section_header"])
+        self.assertEqual(lines[0]["line_total"], 0)
+        self.assertTrue(lines[2]["is_modifier"])
+        self.assertEqual(lines[2]["parent_line_number"], 2)
+        self.assertEqual(lines[2]["line_total"], 0)
+        v = validate(fresh_seed("S14"))
+        self.assertTrue(v["rules"]["R1"]["pass"])
+        self.assertTrue(v["rules"]["R8"]["pass"])
+
+    def test_inline_promo_math_is_trap(self):
+        # 249.- is the set-total echo and (219-109)[49.8%] the
+        # steak's promo annotation: neither is a charge line, and
+        # the steak books at its 110.00 net.
+        doc = fresh_seed("S14")
+        self.assertEqual(doc["line_items"][1]["line_total"], 11000)
+        self.assertIn("249.- (219.00-109.00)[49.8%]",
+                      doc["discarded_text"])
+        self.assertIn("* SP สเต็กสะโพกไก่ขี้โมโห คู่ แรปทูน่าอ้วน",
+                      doc["discarded_text"])
+
+    def test_symmetric_date_and_printed_split(self):
+        # 09/09 reads the same under DD/MM and MM/DD; the printed
+        # Taxable/Tax split matches the recomputation exactly.
+        doc = fresh_seed("S14")
+        self.assertEqual(doc["dates"]["issue_date"], "2026-09-09")
+        self.assertEqual(doc["dates"]["printed_at"],
+                         "2026-09-09T14:19:00")
+        self.assertEqual(doc["totals"]["vatable_amount"], 23271)
+        self.assertEqual(doc["totals"]["vat_amount"], 1629)
+        v = validate(doc)
+        self.assertTrue(v["rules"]["R3"]["pass"])
+        self.assertTrue(v["rules"]["R4"]["pass"])
+        self.assertTrue(v["rules"]["R5"]["pass"])
+
+    def test_channel_traps_and_pii_omitted(self):
+        doc = fresh_seed("S14")
+        self.assertEqual(doc["document_number"], "JS001/ESP017940")
+        for trap in ("Order No: 15142", "Ref No: 689",
+                     "Table No: 02", "Cutlery: No",
+                     "** 09/09/2026 14:19 **",
+                     "Scan here to share your feedback!",
+                     "@Jonessalad"):
+            self.assertIn(trap, doc["discarded_text"])
+        blob = json.dumps(doc, ensure_ascii=False)
+        self.assertNotIn("Nantacha", blob)
+        v = validate(doc)
+        self.assertEqual(failed_rules(v), [])
+        self.assertEqual(triage(doc, v)["decision"], "auto_accept")
+
+
+class TestS15Tops(unittest.TestCase):
+    def test_promo_line_and_verbatim_oddity(self):
+        # -3.00 Mix&Match is a charge line (S10 pattern), not
+        # discount_total; the odd first-line name stays verbatim.
+        doc = fresh_seed("S15")
+        self.assertEqual(
+            [li["line_total"] for li in doc["line_items"]],
+            [800, 1600, -300, 1600])
+        self.assertEqual(doc["line_items"][0]["description"],
+                         "โผล่น้ำแข็งกั่ว")
+        self.assertEqual(doc["totals"]["discount_total"], 0)
+        v = validate(doc)
+        self.assertTrue(v["rules"]["R1"]["pass"])
+        self.assertTrue(v["rules"]["R5"]["pass"])
+
+    def test_digit_runs_route_to_review(self):
+        # NP/STID/barcode digit runs look card-shaped to R11's
+        # conservative scan: soft flag, human clears, like S3.
+        doc = fresh_seed("S15")
+        self.assertIn("NP_3724765260701", doc["discarded_text"])
+        v = validate(doc)
+        self.assertEqual(failed_rules(v), ["R11"])
+        self.assertEqual(v["hard_failed"], [])
+        self.assertIn("card", v["rules"]["R11"]["detail"])
+        self.assertEqual(triage(doc, v)["decision"], "needs_review")
+
+    def test_coupon_section_is_all_traps(self):
+        # The coupon's code, % figures and three extra dates must
+        # not move the receipt's date, discount or totals.
+        doc = fresh_seed("S15")
+        self.assertEqual(doc["dates"]["issue_date"], "2026-09-09")
+        for trap in ("JOYNOW15", "30/08/69", "15.07.2026",
+                     "30.09.2026"):
+            self.assertIn(trap, doc["discarded_text"])
+        self.assertEqual(doc["totals"]["discount_total"], 0)
+
+    def test_receipt_number_and_pii_omitted(self):
+        doc = fresh_seed("S15")
+        self.assertEqual(doc["document_number"], "003 - 022725")
+        self.assertIn("TP 003 - 023471", doc["discarded_text"])
+        self.assertEqual(doc["issuer"]["phone"], "02-660-9092-3")
+        self.assertIn("โทร 1467", doc["discarded_text"])
+        blob = json.dumps(doc, ensure_ascii=False)
+        self.assertNotIn("2471459066", blob)
+        self.assertNotIn("ไกรสร", blob)
+        self.assertNotIn("Natthaphat", blob)
+
+
+class TestS16SevenSecondSlip(unittest.TestCase):
+    def test_receipt_level_discount_not_line(self):
+        # The 4.00 Coke/Sprite row sits after ยอดรวม printed
+        # positive: S11-pattern discount_total, not a third line.
+        doc = fresh_seed("S16")
+        self.assertEqual(len(doc["line_items"]), 2)
+        t = doc["totals"]
+        self.assertEqual(t["total"], 8100)
+        self.assertEqual(t["discount_total"], 400)
+        self.assertEqual(t["subtotal"], 7700)
+        v = validate(doc)
+        self.assertTrue(v["rules"]["R1"]["pass"])
+        self.assertTrue(v["rules"]["R2"]["pass"])
+
+    def test_sister_slip_links_and_anchor(self):
+        # Same store, entity and POS terminal as S22; BE date
+        # resolves via the TID stamp like S22's.
+        doc = fresh_seed("S16")
+        s22 = fresh_seed("S22")
+        for key in ("tax_id", "branch_code"):
+            self.assertEqual(doc["issuer"][key], s22["issuer"][key])
+        self.assertEqual(doc["pos_identifier"], s22["pos_identifier"])
+        self.assertEqual(doc["dates"]["issue_date"], "2026-09-10")
+        self.assertEqual(doc["dates"]["era_resolution"]["anchor_used"],
+                         "TID#20260910000000005221682503")
+        v = validate(doc)
+        self.assertTrue(v["rules"]["R7"]["pass"])
+        self.assertEqual(failed_rules(v), [])
+        self.assertEqual(triage(doc, v)["decision"], "auto_accept")
+
+    def test_stamp_traps_and_pii_omitted(self):
+        doc = fresh_seed("S16")
+        for trap in ("02314", "M-Stamp(บาท)", "3 ชิ้น",
+                     "บิลนี้ประหยัด 4.00",
+                     "** PayAtAll by Counter Service **",
+                     "+42", "9143", "151269", "0-2826-7777"):
+            self.assertIn(trap, doc["discarded_text"])
+        self.assertNotIn("ไกรสร",
+                         json.dumps(doc, ensure_ascii=False))
+
+
+class TestS17ZaabOle(unittest.TestCase):
+    def test_invoice_type_and_staff_row_branch(self):
+        # First invoice-typed seed; the branch hides in the Staff
+        # row. Unknown form with no tax ID: R14 alone, soft.
+        doc = fresh_seed("S17")
+        self.assertEqual(doc["document_type"], "invoice")
+        self.assertEqual(doc["issuer"]["branch_name"], "ห้วยขวาง")
+        self.assertEqual(doc["issuer"]["legal_name"],
+                         "แซ่บโอเล่ by เชฟแม่ยงตำซ่า")
+        v = validate(doc)
+        self.assertEqual(failed_rules(v), ["R14"])
+        self.assertEqual(v["hard_failed"], [])
+        self.assertEqual(triage(doc, v)["decision"], "needs_review")
+
+    def test_faded_dishes_verbatim(self):
+        # Contrast-boosted zooms resolve the faded dish names; the
+        # four lines sum exactly to the 185.00 subtotal.
+        lines = fresh_seed("S17")["line_items"]
+        self.assertEqual(
+            [li["description"] for li in lines],
+            ["นมหมูย่าง", "ลาบเป็ด", "ข้าวเหนียว",
+             "โค้ก(ขวดเล็ก)375ML"])
+        v = validate(fresh_seed("S17"))
+        self.assertTrue(v["rules"]["R1"]["pass"])
+
+    def test_counter_rows_are_traps(self):
+        doc = fresh_seed("S17")
+        for trap in ("Table: 2 นอก", "Guests: 1", "Items: 4"):
+            self.assertIn(trap, doc["discarded_text"])
+        self.assertEqual(doc["dates"]["issue_date"], "2026-09-10")
+        self.assertEqual(doc["status"], "unpaid")
+        v = validate(doc)
+        self.assertTrue(v["rules"]["R5"]["pass"])
+
+    def test_faded_split_lists_s17(self):
+        # Second faded-thermal member after S5 for the eval split.
+        faded = os.path.join(os.path.dirname(__file__), "..", "data",
+                             "faded.txt")
+        with open(faded, encoding="utf-8") as f:
+            ids = [line.strip() for line in f if line.strip()]
+        self.assertIn("S17", ids)
+
+
+class TestS18PungSiam(unittest.TestCase):
+    def test_abb_banktransfer_auto_accepts(self):
+        # Clean bakery ABB: valid tax ID, exact math, explicit
+        # BankTransfer tender row. Nothing fails: auto_accept.
+        doc = fresh_seed("S18")
+        self.assertEqual(doc["form"], "abbreviated")
+        self.assertEqual(doc["document_number"], "RC6909130088")
+        self.assertEqual(doc["pos_identifier"], "E041310002A3489")
+        self.assertEqual(doc["payments"],
+                         [{"amount": 6900, "method": "bank_transfer",
+                           "method_raw": "BankTransfer:"}])
+        v = validate(doc)
+        self.assertEqual(v["hard_failed"], [])
+        self.assertEqual(
+            sorted(r for r, rp in v["rules"].items()
+                   if not rp["pass"]), [])
+        self.assertEqual(triage(doc, v)["decision"], "auto_accept")
+
+    def test_printed_vat_pins_formula_third_time(self):
+        # 4.51 = round(6900*7/107): third printed-VAT pin after
+        # S13/S23, and 64.49 + 4.51 reconciles to 69.00 exactly.
+        doc = fresh_seed("S18")
+        self.assertEqual(doc["totals"]["vat_amount"], 451)
+        self.assertEqual(doc["totals"]["vat_amount_computed"], 451)
+        self.assertEqual(round(6900 * 7 / 107), 451)
+        self.assertEqual(doc["totals"]["vatable_amount"], 6449)
+        v = validate(doc)
+        self.assertTrue(v["rules"]["R1"]["pass"])
+
+    def test_traps_and_thai_digit_logo_year(self):
+        # The ลูกค้าทั่วไป เงินสด line is a customer-type label,
+        # not the tender; the logo year is Thai digits ๒๕๑๕ (=2515,
+        # duplicating the Arabic-digit company line used verbatim).
+        doc = fresh_seed("S18")
+        for trap in ("S/N# E720M01014", "เปิดโต๊ะ: 13:04",
+                     "พิมพ์ใบเรียกเก็บเงิน: 13:04",
+                     "ลูกค้าทั่วไป เงินสด", "เงินทอน: 0.00",
+                     "หมายเหตุ:", "ราคารวมภาษีมูลค่าเพิ่มแล้ว",
+                     "Version (3.0.2502.1)"):
+            self.assertIn(trap, doc["discarded_text"])
+        self.assertEqual(doc["issuer"]["legal_name"],
+                         "บริษัท ปังสยาม พ.ศ.2515 จำกัด")
+        self.assertEqual(doc["issuer"]["branch_code"], "00012")
+        self.assertEqual(doc["line_items"][0]["description"],
+                         "สเลอปี้ทูโทน")
+        self.assertEqual(doc["dates"]["issue_date"], "2026-09-13")
+
+
+class TestS19WatsonsRatchada(unittest.TestCase):
+    def test_sister_slip_matches_s13_and_auto_accepts(self):
+        # Same two products and 50.00 as S13; the 328-vs-327
+        # per-line-rounding gap is absorbed by R3's +-1 again.
+        doc = fresh_seed("S19")
+        self.assertEqual(doc["form"], "abbreviated")
+        self.assertEqual(doc["issuer"]["tax_id"], "0105539086260")
+        self.assertEqual(
+            [li["description"] for li in doc["line_items"]],
+            ["#HDBRPMNightRepa@", "#HadabireiPr@"])
+        self.assertEqual(doc["totals"]["vat_amount"], 328)
+        self.assertEqual(doc["totals"]["vat_amount_computed"], 327)
+        self.assertEqual(doc["payments"][0]["method"], "qr_promptpay")
+        self.assertEqual(doc["payments"][0]["external_ref"],
+                         "EDC1791002675378943")
+        v = validate(doc)
+        self.assertEqual(failed_rules(v), [])
+        self.assertEqual(triage(doc, v)["decision"], "auto_accept")
+
+    def test_encoded_date_is_stale_trap(self):
+        # #634002100320260007 = store 634 + terminal 002 + date
+        # 10032026 + seq 0007, but the header prints 30OCT2026:
+        # the encoded 1003 is stale, the printed date wins, and
+        # the barcode (same stale tail) is discarded verbatim.
+        doc = fresh_seed("S19")
+        num = doc["document_number"]
+        self.assertEqual(num, "634002100320260007")
+        self.assertTrue(num.startswith("634002"))
+        self.assertIn("10032026", num)
+        self.assertTrue(num.endswith("0007"))
+        self.assertEqual(doc["issuer"]["branch_code"], "00634")
+        self.assertEqual(doc["dates"]["issue_date"], "2026-10-30")
+        self.assertEqual(doc["dates"]["raw_date_string"],
+                         "30OCT2026 11:44:46")
+        self.assertIn("3706340211441120261003",
+                      doc["discarded_text"])
+
+    def test_traps_and_no_machine_id(self):
+        # POS(02)# is a terminal label, not an E machine ID;
+        # 02-0178899 is the call center (no phone key, S13
+        # precedent); cashier name omitted as PII.
+        doc = fresh_seed("S19")
+        self.assertIsNone(doc["pos_identifier"])
+        self.assertNotIn("phone", doc["issuer"])
+        for trap in ("POS(02)#", "2", "CHANGE 0.00",
+                     "Loyalty acc.number 9930840807***",
+                     "Opening Balance 30", "Earned value 2",
+                     "Closing balance 32", "Tel: 02-0178899",
+                     "ISSUER# PROMPTPAY", "TID# 73906592",
+                     "TRACE# 103125", "R 002", "C00C5", "#0007"):
+            self.assertIn(trap, doc["discarded_text"])
+        blob = json.dumps(doc, ensure_ascii=False)
+        self.assertNotIn("Nanthita", blob)
+        # SKU2 differs from S13's 309086: the 4th glyph reads C.
+        self.assertEqual(doc["line_items"][1]["description_raw"],
+                         "309C76 #HadabireiPr@")
 
 
 if __name__ == "__main__":

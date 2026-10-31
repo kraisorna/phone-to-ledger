@@ -43,11 +43,11 @@
       "required": ["grand_total"],
       "properties": {
         "grand_total": {"type": "integer", "minimum": 0},
-        "subtotal": {"type": ["integer", "null"]},
+        "subtotal": {"type": ["integer", "null"], "description": "Net payable before service: total - discount_total + rounding_adjustment (R1). Equals total when no deductions print."},
         "discount_total": {"type": ["integer", "null"], "default": 0},
         "rounding_adjustment": {"type": ["integer", "null"], "default": 0},
         "service_charge": {"type": ["integer", "null"], "default": 0},
-        "total": {"type": ["integer", "null"]},
+        "total": {"type": ["integer", "null"], "description": "Gross charge-line sum as printed (ยอดรวม/Subtotal row before deductions). Net is subtotal; final is grand_total = subtotal + service_charge (R2)."},
         "vatable_amount": {"type": ["integer", "null"]},
         "vat_amount": {"type": ["integer", "null"]},
         "vat_amount_computed": {"type": ["integer", "null"]},

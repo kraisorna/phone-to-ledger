@@ -9,6 +9,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from ptl.api.cli import cmd_export
 from ptl.pipeline.extract import (EXTRACTION_PROMPT_RULES,
                                   build_document,
+                                  normalise_payment_method,
                                   normalise_pos_identifier,
                                   split_embedded_qty, strip_vat_flag)
 from ptl.pipeline.ingest import content_hash, mask_pii
@@ -60,6 +61,77 @@ class TestPipelineBits(unittest.TestCase):
         self.assertIsNone(
             normalise_pos_identifier("XE020100002A2158"))
         self.assertIsNone(normalise_pos_identifier("JS001/ESP014867"))
+
+    def test_pos_spaced_stamp_joins(self):
+        # S9 prints the vendor groups spaced: "E 05 20100 02 A3693"
+        # joins to the E+14 family shape. Trailing words and wobbly
+        # spacing must not leak into the stamp.
+        self.assertEqual(
+            normalise_pos_identifier("POS ID#: E 05 20100 02 A3693"),
+            "E052010002A3693")
+        self.assertEqual(
+            normalise_pos_identifier("E 05 20100 02 A3693 Thank You"),
+            "E052010002A3693")
+        self.assertEqual(
+            normalise_pos_identifier("E  05  20100  02  A3693"),
+            "E052010002A3693")
+
+    def test_pos_spaced_rejects(self):
+        # Wrong group widths, mid-token starts, and stamps glued to a
+        # trailing alnum are not stamps: None, never a clip.
+        self.assertIsNone(
+            normalise_pos_identifier("E 05 2010 02 A3693"))
+        self.assertIsNone(
+            normalise_pos_identifier("XE 05 20100 02 A3693"))
+        self.assertIsNone(
+            normalise_pos_identifier("E 05 20100 02 A3693X"))
+
+    def test_payment_method_gold_table(self):
+        # Every seed (raw -> method) pair; the S1 raws also cover the
+        # live free-string methods ("qr"/"other"). Last three rows are
+        # unseeded-but-observed (S10 slip) or standard tender texts.
+        pairs = [
+            ("QRPayment(API)", "qr_promptpay"),  # S1
+            ("ส่วนลด 10 บาท AIS", "voucher_discount"),  # S1
+            ("LOTUSS MC", "credit_card"),  # S2
+            ("ทรูวอลเล็ท7App", "truemoney_wallet"),  # S22/S5
+            ("ทรูวอลเล็ท 7App", "truemoney_wallet"),  # S6
+            ("Mobile Payment :", "mobile_payment"),  # S23
+            ("QR Payment Bangkok Bank", "bank_qr"),  # S3
+            ("Starbucks stored-value redeem",  # S4
+             "stored_value_redeem"),
+            ("On-line card", "card"),  # S7
+            ("PROMPTPAY", "qr_promptpay"),  # S9
+            ("MasterCard 559233XXXXXX3717", "credit_card"),  # S10
+            ("Cash", "cash"),
+            ("เงินสด", "cash"),
+        ]
+        for raw, want in pairs:
+            with self.subTest(raw=raw):
+                self.assertEqual(
+                    normalise_payment_method(raw, "model-says"), want)
+
+    def test_payment_method_unknown_keeps_model_value(self):
+        # Unmapped tender text is passed through, never invented.
+        self.assertEqual(
+            normalise_payment_method("AliPay", "alipay"), "alipay")
+        self.assertEqual(normalise_payment_method(None, "qr"), "qr")
+        self.assertIsNone(normalise_payment_method("AliPay"))
+
+    def test_build_document_normalises_payments(self):
+        # S1-live-shaped methods come out as gold vocabulary, and the
+        # input skeleton is never mutated.
+        skel = {"payments": [
+            {"amount": 3500, "method": "qr",
+             "method_raw": "QRPayment(API)"},
+            {"amount": 1000, "method": "other",
+             "method_raw": "ส่วนลด 10 บาท AIS"},
+        ]}
+        doc = build_document(skel)
+        self.assertEqual(
+            [p["method"] for p in doc["payments"]],
+            ["qr_promptpay", "voucher_discount"])
+        self.assertEqual(skel["payments"][0]["method"], "qr")
 
     def test_prompt_pins_labelled_doc_numbers(self):
         # S2's '16811002 3499' was assembled from an unlabeled stamp and
