@@ -212,6 +212,24 @@ class TestSpark(unittest.TestCase):
         self.assertEqual(clean["dup"], 2)  # exact key wins
         self.assertIn("dates ", messy)  # input untouched
 
+    def test_normalize_keys_strips_control_chars(self):
+        # A live Spark run emitted NUL-suffixed keys ("dates\0",
+        # "line_items\0", "currency\0" + "currency\1"), silently
+        # dropping fields until R1 blocked the row. Control chars
+        # strip like whitespace; exact keys still win collisions.
+        messy = {"dates\0": {"issue_date": "2026-08-27"},
+                 "line_items\0": [],
+                 "currency\0": "X", "currency\x01": "Y",
+                 "currency": "THB",
+                 "nested": {"deep\x7f": 1}}
+        clean = normalize_keys(messy)
+        self.assertEqual(clean["dates"]["issue_date"], "2026-08-27")
+        self.assertEqual(clean["line_items"], [])
+        self.assertEqual(clean["currency"], "THB")
+        self.assertEqual(clean["nested"]["deep"], 1)
+        self.assertNotIn("dates\0", clean)
+        self.assertIn("dates\0", messy)  # input untouched
+
     def test_spaced_output_recovers(self):
         ext = SparkExtractor(api_key="k")
         text = json.dumps({"schema_version": "1.0",

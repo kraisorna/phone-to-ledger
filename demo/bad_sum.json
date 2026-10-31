@@ -1,0 +1,92 @@
+{
+  "schema_version": "1.0",
+  "document_type": "combined",
+  "form": "abbreviated",
+  "can_claim_input_vat": false,
+  "document_number": "2083RC082569/005087",
+  "status": "paid",
+  "dates": {
+    "issue_date": "2026-08-27",
+    "raw_date_string": "27/08/2569 15:14",
+    "era_resolution": {
+      "detected_era": "BE",
+      "year_digits": 4,
+      "anchor_used": null
+    }
+  },
+  "issuer": {
+    "legal_name": "บมจ.ปตท. น้ำมันและการค้าปลีก",
+    "brand_name": "Cafe Amazon",
+    "branch_name": "สน.สุทธิสาร",
+    "branch_code": "00031",
+    "tax_id": "0107561000013",
+    "vat_registered": true
+  },
+  "line_items": [
+    {
+      "line_number": 1,
+      "description": "TW น้ำลิ้นจี่ เย็น",
+      "description_raw": "TW น้ำลิ้นจี่ เย็น",
+      "line_total": 4600,
+      "quantity": 1,
+      "quantity_source": "column",
+      "supply_type": "goods",
+      "vat_flag": "V"
+    },
+    {
+      "line_number": 2,
+      "description": "- TW หวานน้อย 50%",
+      "description_raw": "- TW หวานน้อย 50%",
+      "line_total": 0,
+      "quantity": 1,
+      "quantity_source": "column",
+      "supply_type": "goods",
+      "vat_flag": "V",
+      "is_modifier": true,
+      "parent_line_number": 1
+    }
+  ],
+  "payments": [
+    {
+      "amount": 3500,
+      "method": "qr_promptpay",
+      "method_raw": "QRPayment(API)",
+      "external_ref": "promptpay\\APIC1787318440425NZX"
+    },
+    {
+      "amount": 1000,
+      "method": "voucher_discount",
+      "method_raw": "ส่วนลด 10 บาท AIS"
+    }
+  ],
+  "totals": {
+    "grand_total": 4500,
+    "subtotal": 4500,
+    "discount_total": 0,
+    "total": 4500,
+    "vatable_amount": 4206,
+    "vat_amount": 294,
+    "vat_amount_computed": 294,
+    "non_vatable_amount": 0
+  },
+  "vat_mode": "inclusive",
+  "vat_rate_bp": 700,
+  "currency": "THB",
+  "pos_identifier": "E020100002A2158",
+  "discarded_text": [
+    "คิวที่ 71"
+  ],
+  "field_confidence": {
+    "totals.grand_total": 0.98,
+    "totals.vat_amount": 0.97,
+    "dates.issue_date": 0.99,
+    "issuer.tax_id": 0.99,
+    "document_number": 0.95
+  },
+  "source": {
+    "kind": "ocr",
+    "image_uri": "s1.jpg",
+    "image_hash": "placeholder-hash-s1",
+    "model": "hand-label"
+  }
+}

@@ -182,6 +182,21 @@ def r9_category_subtotals(doc):
     return True, "category subtotals ok"
 
 
+def _seller_id(issuer):
+    """R10 seller identity: tax_id, else the normalized legal name.
+
+    Slips without a printed tax ID (e.g. S23) still carry a seller
+    name plus a receipt number; with tax_id as the only identity
+    those docs get no usable R10 key and a re-photo passes as a new
+    document. The name form is namespaced so it can never collide
+    with a real tax ID.
+    """
+    if issuer.get("tax_id"):
+        return issuer["tax_id"]
+    norm = " ".join((issuer.get("legal_name") or "").split()).lower()
+    return f"name:{norm}" if norm else None
+
+
 def dup_keys(doc):
     """R10 lookup keys for a doc; a key is None when unusable.
 
@@ -191,7 +206,8 @@ def dup_keys(doc):
     issuer = doc.get("issuer") or {}
     tax_id = issuer.get("tax_id")
     doc_number = doc.get("document_number")
-    doc_key = (tax_id, doc_number) if (tax_id and doc_number) else None
+    seller = _seller_id(issuer)
+    doc_key = (seller, doc_number) if (seller and doc_number) else None
     fuzzy = (tax_id, (doc.get("dates") or {}).get("issue_date"),
              _totals(doc).get("grand_total"), doc.get("pos_identifier"))
     fuzzy_key = fuzzy if all(v is not None for v in fuzzy) else None
@@ -201,13 +217,16 @@ def dup_keys(doc):
 
 
 def r10_duplicates(doc, seen=None):
-    """duplicate keys: (tax_id, document_number), (tax_id, date, total, pos),
+    """duplicate keys: (seller, document_number), (tax_id, date, total, pos),
     image hash."""
     seen = seen or {}
     keys = dup_keys(doc)
     if (keys["doc_key"] is not None
             and keys["doc_key"] in seen.get("doc_keys", set())):
-        return False, f"duplicate (tax_id, document_number)={keys['doc_key']}"
+        label = ("seller_name" if keys["doc_key"][0].startswith("name:")
+                 else "tax_id")
+        return False, (f"duplicate ({label}, "
+                       f"document_number)={keys['doc_key']}")
     if (keys["fuzzy_key"] is not None
             and keys["fuzzy_key"] in seen.get("fuzzy_keys", set())):
         return False, f"duplicate (tax_id, date, total, pos)={keys['fuzzy_key']}"

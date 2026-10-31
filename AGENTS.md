@@ -83,8 +83,8 @@ receipts found.
 
 ## Working agreements
 
-- An hourly automation shares this tree: keep diffs focused, run `make
-  test` before finishing, and leave the tree green.
+- A half-hourly automation (:07/:37) shares this tree: keep diffs
+  focused, run `make test` before finishing, and leave the tree green.
 - Commit each finished, locally tested unit of work (`make test` green
   first); one focused change per commit. Push only when explicitly asked.
 - Prove behavior changes by measurement (rule outcomes, extraction
@@ -92,10 +92,37 @@ receipts found.
 - Keep live API spend trivial: tiny probes, mocked tests, no bulk
   batches without need.
 
+## Sample + seed coverage (S1–S28)
+
+Source photos live OUTSIDE the repo: `../rapee/docs/samples/S{n}.jpg`
+(read-only, never copied in). Hand gold lives in `tests/fixtures.py`
+(`SEEDS`, `fresh_seed`); transcription rule: zoom crops first, never
+trust the AI draft or the overview read.
+
+- Seeded (22): S1–S6, S7–S19, S21–S23. Pending: S20, S24, S25, S28.
+- Faded-thermal eval split (`data/faded.txt`): S5, S17.
+- Sister slips (same shop/format — mirror the older seed's
+  conventions): S13/S19 (Watsons), S16/S22 (7-Eleven 02304),
+  S17/S25 (Isaan invoice, same phone 0819203944), S21/S28
+  (Jamroenros, same company + phone 0955292838).
+- Confirmed re-photos (zoom-verified, NOT independent seeds):
+  S23/S26 (Oasis `1RC102569/008592`, 120.00) and S22/S27
+  (7-Eleven 02304 `R#0000240606P1`, 77.25). Pinned as R10
+  dedup pairs in `tests/test_dedup.py`; S26/S27 never get
+  their own seeds.
+- New formats in queue: S24 Snowtee (promptpay QR + VAT-pin
+  candidate 2.29 on 35.00), S20 (unread).
+
 ## Known gaps (current)
 
-Eval labels + 150-receipt collection, S7–S11 fixtures, export target
-format decision, Glimmer model wiring, crop renderer for Spark.
+S20 + S24/S25/S28 seeds (see above; S26/S27 are dedup pins, not
+seeds); 150-receipt collection + 50
+held-out eval labels (have 22 seeds, 2 faded); Glimmer model wiring
+(stubs); Spark crop renderer (whole image sent); export
+target-format verification (PEAK/FlowAccount/Express); demo video
+(Nov 4 deadline); queued betterments: tender maps (bank_transfer /
+Sbux-redeem / ShopeeFood gold already in seeds, normaliser lags),
+R11 Luhn gate, total inference, Thai-digit year normalisation.
 
 ## Hackathon — Meta Global AI Developer Hackathon (Cerebral Valley)
 

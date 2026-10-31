@@ -1,0 +1,2 @@
+date,document_number,document_type,form,can_claim_input_vat,seller_legal_name,seller_tax_id,branch_code,vatable,vat,non_vatable,grand_total,payment_method,review_status,source_image_ref,note
+2026-08-27,2083RC082569/005087,combined,abbreviated,no,บมจ.ปตท. น้ำมันและการค้าปลีก,0107561000013,00031,42.06,2.94,0.00,45.00,qr_promptpay+voucher_discount,auto_accept,s1.jpg,
