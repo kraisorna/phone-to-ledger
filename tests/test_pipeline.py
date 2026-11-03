@@ -15,7 +15,8 @@ from ptl.pipeline.extract import (EXTRACTION_PROMPT_RULES,
                                   normalise_pos_identifier,
                                   split_embedded_qty, strip_vat_flag,
                                   thai_digits_to_ascii)
-from ptl.pipeline.ingest import content_hash, mask_pii, strip_exif
+from ptl.pipeline.ingest import (content_hash, mask_pii, scrub_doc,
+                                 strip_exif)
 from ptl.pipeline.quality import quality_gate
 from ptl.pipeline.validate_rules import r1_line_sum, r4_vat_split
 from ptl.pipeline.export import COLUMNS, to_csv, to_row, to_xlsx
@@ -223,6 +224,15 @@ class TestPipelineBits(unittest.TestCase):
         self.assertIn("71498", EXTRACTION_PROMPT_RULES)
         self.assertIn("Restaurant/Store ID", HEADER_PROMPT)
 
+    def test_prompt_pins_no_person_names(self):
+        # 02 sec 12: cashier/customer/member names are PDPA PII.
+        # Regex cannot catch names, so the prompt must forbid them.
+        # Live obedience is verified by re-extraction, not this pin.
+        from ptl.adapters.glimmer import HEADER_PROMPT
+        self.assertIn("never transcribe person names",
+                      EXTRACTION_PROMPT_RULES)
+        self.assertIn("never transcribe person names", HEADER_PROMPT)
+
     def test_prompt_pins_legal_brand_separation(self):
         # S5 read 'CP ALL, 7-Eleven' twice running: the brand got
         # appended to the registered company name (01 sec 7 + 02
@@ -245,6 +255,76 @@ class TestPipelineBits(unittest.TestCase):
     def test_pii_mask(self):
         self.assertNotIn("081-234-5678", mask_pii("call 081-234-5678"))
         self.assertNotIn("a@b.com", mask_pii("mail a@b.com"))
+
+    def test_phone_re_skips_mid_alphanumeric(self):
+        # S15's STID holds a phone-shaped fragment inside a longer
+        # terminal id; only standalone numbers are PII.
+        stid = "STID: 2609091443360023471CFR000516003"
+        self.assertEqual(mask_pii(stid), stid)
+        self.assertNotIn("02-0178899", mask_pii("Tel: 02-0178899"))
+
+    def test_scrub_doc_masks_freetext_pii(self):
+        doc = {"issuer": {}, "discarded_text": ["Tel: 02-0178899"],
+               "line_items": [{"description": "น้ำ 081-234-5678",
+                               "description_raw": "x cashier@shop.com"}],
+               "payments": [{"method_raw": "VISA 4111XXXXXXXX1111",
+                             "external_ref": None}]}
+        out = scrub_doc(doc)
+        self.assertNotIn("02-0178899", out["discarded_text"][0])
+        self.assertNotIn("081-234-5678",
+                         out["line_items"][0]["description"])
+        self.assertNotIn("cashier@shop.com",
+                         out["line_items"][0]["description_raw"])
+        self.assertNotIn("4111", out["payments"][0]["method_raw"])
+        # Thai prose and structure survive.
+        self.assertIn("น้ำ", out["line_items"][0]["description"])
+
+    def test_scrub_doc_contact_fields(self):
+        # Structured contact fields are dropped (phone/email are
+        # unscored), except placeholder emails R11 must recognize.
+        doc = {"issuer": {"phone": "081-375-6270",
+                          "email": "manager@shop.co.th"}}
+        out = scrub_doc(doc)
+        self.assertIsNone(out["issuer"]["phone"])
+        self.assertIsNone(out["issuer"]["email"])
+        doc = {"issuer": {"phone": None,
+                          "email": "U1346493@noemail.longdo.com"}}
+        out = scrub_doc(doc)
+        self.assertEqual(out["issuer"]["email"],
+                         "U1346493@noemail.longdo.com")
+
+    def test_scrub_doc_preserves_scored_gold(self):
+        # Wiring scrub into e2e must not move eval numbers: across
+        # all 25 seeds every scored path is identical after scrub.
+        from ptl.eval.gold import SEEDS, fresh_seed
+        paths = ("issuer.tax_id", "issuer.legal_name",
+                 "issuer.branch_code", "dates.issue_date",
+                 "document_number", "form", "totals.grand_total",
+                 "totals.subtotal", "totals.total", "totals.vat_amount",
+                 "totals.vatable_amount", "totals.discount_total")
+
+        def get(doc, dotted):
+            # .get chains: S2 legitimately lacks document_number,
+            # so missing-vs-missing must compare equal, not raise.
+            cur = doc
+            for part in dotted.split("."):
+                cur = (cur or {}).get(part)
+            return cur
+
+        for name in SEEDS:
+            gold = fresh_seed(name)
+            out = scrub_doc(fresh_seed(name))
+            for p in paths:
+                self.assertEqual(get(out, p), get(gold, p),
+                                 f"{name} {p}")
+            for li_o, li_g in zip(out["line_items"], gold["line_items"]):
+                # .get: some seeds (S3/S11/S14) legitimately lack
+                # quantity on lines without a printed count.
+                self.assertEqual(li_o.get("description"),
+                                 li_g.get("description"))
+                self.assertEqual(li_o.get("quantity"), li_g.get("quantity"))
+                self.assertEqual(li_o.get("line_total"),
+                                 li_g.get("line_total"))
 
     def test_hash(self):
         self.assertEqual(len(content_hash(b"x")), 64)

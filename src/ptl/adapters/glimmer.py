@@ -49,7 +49,8 @@ HEADER_PROMPT = (
     "is the branch_code when no branch-labeled number prints; "
     "legal_name is the registered company name "
     "alone, without any branch suffix or appended brand/store name "
-    "(CP ALL, not 'CP ALL, 7-Eleven').")
+    "(CP ALL, not 'CP ALL, 7-Eleven'), and never transcribe "
+    "person names (cashier/customer/member) into any field.")
 LINES_PROMPT = (
     "Transcribe ONLY the purchased line items from this Thai retail "
     "receipt into the schema JSON. For each bought product write one "

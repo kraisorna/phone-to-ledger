@@ -13,7 +13,7 @@ import time
 from ..adapters.pricing import estimate_usd, usd_to_thb
 from ..pipeline.dedup import SeenStore
 from ..pipeline.export import to_csv, to_row
-from ..pipeline.ingest import ingest_bytes, strip_exif
+from ..pipeline.ingest import ingest_bytes, scrub_doc, strip_exif
 from ..pipeline.retry import retry_extract
 from ..pipeline.triage import triage
 from ..pipeline.validate_rules import HARD_RULES, validate
@@ -142,6 +142,10 @@ def _run_crops(image_path, work_path, segmenter, extractor, store,
     for crop in crops:
         doc, _conf, _v, _d, used = retry_extract(
             crop, _ClaimingExtractor(extractor), attempts=attempts)
+        # 02 sec 12: PDPA scrub at the ingestion boundary, before
+        # structure check, validate, store, queue and export.
+        if isinstance(doc, dict):
+            scrub_doc(doc)
         source = doc.get("source") if isinstance(doc, dict) else None
         if isinstance(source, dict):
             source.setdefault("crop_index", crop.index)

@@ -74,6 +74,25 @@ class TestRunE2E(unittest.TestCase):
         self.assertIn("grand_total", res["csv"])
         self.assertEqual(res["docs"][0]["doc"]["source"]["crop_index"], 0)
 
+    def test_e2e_scrubs_pii_at_ingestion(self):
+        # 02 sec 12: PII the model leaks into free text must be
+        # masked before validate/store/queue/export ever see it.
+        doc = fresh_seed("S1")
+        doc["issuer"]["phone"] = "081-375-6270"
+        doc.setdefault("discarded_text", []).append("Tel: 02-0178899")
+        path = _image_file()
+        try:
+            res = run_e2e(path, segmenter=_Seg([_crop()]),
+                          extractor=_Ext([doc]))
+        finally:
+            os.unlink(path)
+        out = res["docs"][0]["doc"]
+        self.assertIsNone(out["issuer"]["phone"])
+        self.assertNotIn("02-0178899", json.dumps(out))
+        self.assertNotIn("081-375-6270", json.dumps(out))
+        self.assertNotIn("02-0178899", res["csv"])
+        self.assertEqual(res["rows"][0]["review_status"], "auto_accept")
+
     def test_two_crops_yield_two_docs(self):
         # "Several receipts in one shot" (mission statement): one doc
         # per slip, each extraction scoped to its crop. Distinct seeds

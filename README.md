@@ -46,8 +46,8 @@ reported separately. Field-exact scores, 25/25 docs scored:
 
 | system | docs | grand | lines | tax ID | dates |
 | --- | --- | --- | --- | --- | --- |
-| A Tesseract + regex | 0/25 | 8/25 | 0/25 | — | — |
-| B single-prompt Spark | 6/25 | 23/25 | 10/25 | 23/25 | — |
+| A Tesseract + regex | 0/25 | 8/25 | 0/25 | 9/25 | 4/25 |
+| B single-prompt Spark | 6/25 | 23/25 | 10/25 | 23/25 | n/m¹ |
 | C full pipeline (SAM + Spark + rules) | 7/25 | 25/25 | 15/25 | 25/25 | 25/25 |
 | D Glimmer offline | 4/25 | 25/25 | 13/25 | 23/25 | 11/25 |
 
@@ -60,6 +60,10 @@ recorded model limitations, never papered over in post-processing.
 `ptl eval` also reports the review cross-tab (review rate,
 auto-accept accuracy, flag recall); on the 25 seeds the pipeline
 flags 11 and auto-accepts 14/14 exactly right.
+
+¹ B dates not measured: single-prompt preds were not retained
+when B ran, and re-running B costs 25 paid Spark calls — queued
+until the next paid baseline refresh, not silently filled.
 
 ## Rules
 

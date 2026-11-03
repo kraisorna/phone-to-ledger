@@ -154,7 +154,8 @@ to a labels dir for `ptl eval` (gitignored, regenerable).
 
 150-receipt collection + 50 held-out eval labels (have 25
 seeds + 3 dedup pins, 2 faded; harness runnable via ptl labels
-+ ptl eval; baseline A 0/25 docs (grand 8/25, lines 0/25),
++ ptl eval; baseline A 0/25 docs (grand 8/25, lines 0/25,
+tax 9/25, dates 4/25 re-measured Nov 3, grand/lines reproduce),
 single-prompt B 6/25 (grand/tax 23/25, lines 10/25, legal
 9/25; S14/S24 timed out twice), full-pipeline C 7/25
 C-context-verified, 25/25 scored (tax/grand/dates/form/
@@ -903,6 +904,16 @@ scope): smoke #146 green 15/15
 auto_accept clean first attempt at ฿2.08,
 16th straight green after #130; no code
 change warranted; DEMO.md 131/146.
+PII run (02 sec 12, user-ordered): scrub_doc ships in
+ingest.py and wires into e2e post-extract (regex-masks
+discarded_text/descriptions/method_raw, drops issuer.phone,
+nulls real issuer.email, keeps R11 placeholders); CARD_RE
+gains full-PAN + X-mask alts, PHONE_RE mid-alphanumeric
+guard; no-names clause pinned in Spark + Glimmer prompts;
+gold sweep proves zero scored movement on 25 seeds;
+README eval filled (A tax 9/25 dates 4/25 re-measured,
+B dates n/m footnoted); smoke #147 green auto_accept
+first attempt at ฿0.64, 17th straight; 444 green.
 
 ## Hackathon — Meta Global AI Developer Hackathon (Cerebral Valley)
 

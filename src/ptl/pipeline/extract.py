@@ -45,6 +45,7 @@ You extract a Thai tax document into schema v1.0 JSON.
 - form is abbreviated only with an explicit ABB mark (TAX INVOICE(ABB), ใบกำกับภาษีอย่างย่อ), full only with buyer name+address+tax ID on the slip, else unknown: never default to abbreviated on a marker-less slip (S23).
 - transcribe item descriptions verbatim: drop only obvious printer-stray glyphs (a lone leading letter detached from the name, e.g. 7-Eleven's H prefix) and never expand abbreviations (พาสฯ stays พาสฯ, never พาสเจอร์).
 - status is paid only when payment/tender rows are printed and sum to the total, partially_paid when tender covers part, unpaid when no tender rows appear: never invent statuses (no ok/extracted/done).
+- Cashier, customer and member names are personal data: never transcribe person names into any field.
 - Emit per-field confidence 0-1 and raw strings alongside normalised values.
 """
 
