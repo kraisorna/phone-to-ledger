@@ -32,6 +32,8 @@ data/labels/
 # Doc-example outputs (README/DEMO run e2e into these names).
 demo/out.json
 demo/ledger.csv
+# Demo video workbench (raw takes, renders; too big / scratch).
+demo/video/
 
 # macOS
 .DS_Store
