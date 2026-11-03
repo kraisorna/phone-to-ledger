@@ -8,6 +8,7 @@ rejected entries carry no doc. This module normalises them into one
 by the scorer unless labels match them.
 """
 import os
+import time
 
 from ptl.eval.baselines import a_tesseract, b_spark_raw, c_full_spark
 from ptl.eval.baselines import d_full_glimmer
@@ -43,14 +44,17 @@ def run_baseline(system, images_dir):
     names = sorted(n for n in os.listdir(images_dir)
                    if not n.startswith(".")
                    and os.path.splitext(n)[1].lower() in IMAGE_EXTS)
-    preds, missing, errors = {}, [], {}
+    preds, missing, errors, seconds = {}, [], {}, {}
     for name in names:
         stem = os.path.splitext(name)[0]
+        start = time.monotonic()
         try:
             docs = _as_docs(run(os.path.join(images_dir, name)))
         except Exception as e:  # noqa: BLE001 - one bad image must not
             errors[stem] = f"{type(e).__name__}: {e}"  # kill a 150-batch
+            seconds[stem] = time.monotonic() - start
             continue
+        seconds[stem] = time.monotonic() - start
         if not docs:
             missing.append(stem)
         elif len(docs) == 1:
@@ -58,6 +62,9 @@ def run_baseline(system, images_dir):
         else:
             for index, doc in docs:
                 preds[f"{stem}#{index}"] = doc
+    total = sum(seconds.values())
     summary = {"system": system, "images": len(names),
-               "preds": len(preds), "missing": missing, "errors": errors}
+               "preds": len(preds), "missing": missing, "errors": errors,
+               "seconds": seconds, "total_seconds": total,
+               "mean_seconds_per_image": total / len(names) if names else 0.0}
     return preds, summary

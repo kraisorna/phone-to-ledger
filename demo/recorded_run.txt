@@ -8,8 +8,8 @@ $ ptl e2e demo/sample.jpg --out demo/out.json --csv demo/ledger.csv
     "size_bytes": 2452647,
     "source_path": "demo/sample.jpg",
     "path": "demo/sample.jpg",
-    "exif_stripped": false,
-    "note": "strip EXIF with Pillow before persisting"
+    "exif_stripped": true,
+    "note": "EXIF APP1 removed stdlib-only before processing"
   },
   "crops": [
     {
@@ -61,37 +61,40 @@ $ ptl e2e demo/sample.jpg --out demo/out.json --csv demo/ledger.csv
         "dates": {
           "due_date": null,
           "era_resolution": {
-            "anchor_used": null,
+            "anchor_used": "4-digit BE year 2569 with explicit Tax Invoice",
             "detected_era": "BE",
             "year_digits": 4
           },
           "issue_date": "2026-08-27",
           "printed_at": null,
           "raw_date_string": "27/08/2569 15:14",
-          "tax_point_date": "2026-08-27"
+          "tax_point_date": null
         },
         "discarded_text": [
-          "Balance Points 190",
-          "Reward Points 2",
-          "Total Earned Today 2 Points",
+          "TAKE AWAY",
+          "No. Customer:1",
+          "Cashier:2083006 จีรารัตน์",
+          "promptpay\\APIC1787818440425NZX",
           "Card No. XXXX XXXX 3423 1665",
-          "1365 Contact Center",
-          "PTT Station Free Wifi Password: SUJAVW9YZ6X"
+          "Balance Points 190",
+          "Reward Points 2"
         ],
         "document_number": "2083RC082569/005087",
         "document_type": "combined",
         "field_confidence": {
-          "branch_code": 0.98,
-          "document_number": 0.97,
-          "grand_total": 0.99,
-          "issue_date": 0.98,
-          "issuer_tax_id": 0.99
+          "branch_code": 0.95,
+          "document_number": 0.95,
+          "grand_total": 0.98,
+          "issue_date": 0.97,
+          "issuer_tax_id": 0.97,
+          "line_items": 0.9,
+          "payments": 0.85
         },
         "form": "abbreviated",
         "issuer": {
           "address": null,
           "branch_code": "00031",
-          "branch_name": "(สน.สุทธิสาร)",
+          "branch_name": "สน.สุทธิสาร",
           "brand_name": "Cafe Amazon",
           "email": null,
           "email_is_placeholder": false,
@@ -127,7 +130,7 @@ $ ptl e2e demo/sample.jpg --out demo/out.json --csv demo/ledger.csv
             "parent_line_number": 1,
             "quantity": 1,
             "quantity_source": "column",
-            "supply_type": "goods",
+            "supply_type": "unknown",
             "unit": null,
             "unit_price": 0,
             "vat_flag": "unknown"
@@ -138,7 +141,7 @@ $ ptl e2e demo/sample.jpg --out demo/out.json --csv demo/ledger.csv
             "amount": 3500,
             "card_mask": null,
             "card_mask_position": "unknown",
-            "external_ref": "promptpay\\APIC1787818440425NZX",
+            "external_ref": "APIC1787818440425NZX",
             "method": "qr_promptpay",
             "method_raw": "QRPayment(API)",
             "paid_at": null
@@ -159,12 +162,12 @@ $ ptl e2e demo/sample.jpg --out demo/out.json --csv demo/ledger.csv
         "schema_version": "1.0",
         "source": {
           "extracted_at": null,
-          "image_hash": null,
+          "image_hash": "bdc52c0e770d4705c867b51a4a2d17d951b0557904931096e786accddc6641a1",
           "image_quality": {
-            "blur_score": 0,
-            "contrast_score": 0,
+            "blur_score": 0.0,
+            "contrast_score": 0.0,
             "passed_gate": true,
-            "skew_degrees": 0
+            "skew_degrees": 0.0
           },
           "image_uri": "sample.jpg",
           "kind": "ocr",
@@ -192,6 +195,7 @@ $ ptl e2e demo/sample.jpg --out demo/out.json --csv demo/ledger.csv
         "vat_mode": "inclusive",
         "vat_rate_bp": 700
       },
+      "attempts": 1,
       "structure_errors": [],
       "validation": {
         "rules": {
@@ -285,5 +289,27 @@ $ ptl e2e demo/sample.jpg --out demo/out.json --csv demo/ledger.csv
     }
   ],
   "csv": "date,document_number,document_type,form,can_claim_input_vat,seller_legal_name,seller_tax_id,branch_code,vatable,vat,non_vatable,grand_total,payment_method,review_status,source_image_ref,note\r\n2026-08-27,2083RC082569/005087,combined,abbreviated,no,บมจ.ปตท. น้ำมันและการค้าปลีก,0107561000013,00031,42.06,2.94,0.00,45.00,qr_promptpay+voucher_discount,auto_accept,sample.jpg,\r\n",
-  "note": ""
-}exit=0
+  "note": "",
+  "review_enqueued": [],
+  "usage": {
+    "segment": {
+      "calls": 1,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "seconds": 5.109689625000001,
+      "estimated_usd": 0.0025,
+      "estimated_thb": 0.08
+    },
+    "extract": {
+      "calls": 1,
+      "input_tokens": 4987,
+      "output_tokens": 2459,
+      "seconds": 17.054760542,
+      "estimated_usd": 0.016684,
+      "estimated_thb": 0.56
+    },
+    "estimated_usd_total": 0.019184,
+    "estimated_thb_total": 0.65
+  },
+  "elapsed_seconds": 22.226839959
+}

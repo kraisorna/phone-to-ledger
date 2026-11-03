@@ -9,8 +9,10 @@ from contextlib import redirect_stderr, redirect_stdout
 
 from ptl.eval.run_eval import run_eval
 from ptl.api.cli import cmd_review
-from ptl.review.queue import ReviewQueue
-from tests.fixtures import fresh
+from ptl.pipeline.triage import triage
+from ptl.pipeline.validate_rules import validate
+from ptl.review.queue import ReviewQueue, to_html
+from tests.fixtures import fresh, fresh_seed
 
 
 def _enqueue(queue, doc_id, doc):
@@ -73,6 +75,35 @@ class TestReviewQueue(unittest.TestCase):
             report = run_eval(preds, labels)
             self.assertEqual(report["overall"]["doc_all_correct"], 0)
 
+    def test_html_renders_record(self):
+        doc = fresh_seed("S1")
+        doc["line_items"][0]["line_total"] += 100  # break R1 (hard)
+        doc["issuer"]["legal_name"] = "A<B>&\u0e02"
+        v = validate(doc)
+        rec = {"doc_id": "r1", "doc": doc, "validation": v,
+               "triage": triage(doc, v), "status": "pending",
+               "correction": None}
+        html = to_html(rec)
+        self.assertIn("<img", html)
+        self.assertIn(doc["source"]["image_uri"], html)
+        self.assertIn("45.00", html)  # grand_total as THB
+        self.assertIn("R1", html)
+        self.assertIn("needs_review", html)
+        self.assertIn("A&lt;B&gt;&amp;\u0e02", html)
+        self.assertNotIn("A<B>&", html)
+
+    def test_html_image_override(self):
+        # Records carry the extraction-time image_uri (often a bare
+        # basename); the reviewer points the page at the real scan.
+        rec = {"doc_id": "r1",
+               "doc": {"source": {"image_uri": "s1.jpg"}},
+               "validation": {}, "triage": {"decision": "needs_review"},
+               "status": "pending", "correction": None}
+        html = to_html(rec, image_uri="demo/sample.jpg")
+        self.assertIn('src="demo/sample.jpg"', html)
+        html = to_html(rec)
+        self.assertIn('src="s1.jpg"', html)
+
     def test_reexport_overwrites(self):
         with tempfile.TemporaryDirectory() as tmp:
             q = ReviewQueue(os.path.join(tmp, "q"))
@@ -92,7 +123,8 @@ class TestReviewQueue(unittest.TestCase):
 class TestReviewCli(unittest.TestCase):
     def _args(self, queue, **kw):
         base = {"queue": queue, "pending": False, "show": "",
-                "resolve": "", "correction": "", "export_labels": ""}
+                "resolve": "", "correction": "", "export_labels": "",
+                "html": "", "image": ""}
         base.update(kw)
         return argparse.Namespace(**base)
 
@@ -136,6 +168,44 @@ class TestReviewCli(unittest.TestCase):
             self.assertEqual(json.loads(buf.getvalue()),
                              {"doc_id": "r1", "status": "resolved"})
             self.assertEqual(ReviewQueue(queue).pending(), [])
+
+    def test_html_writes_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            queue = os.path.join(tmp, "q")
+            self._seed(queue)
+            out = os.path.join(tmp, "r1.html")
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                rc = cmd_review(self._args(queue, show="r1", html=out))
+            self.assertEqual(rc, 0)
+            with open(out, encoding="utf-8") as f:
+                body = f.read()
+            self.assertIn("<img", body)
+            self.assertIn("needs_review", body)
+
+    def test_html_image_flag_overrides(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            queue = os.path.join(tmp, "q")
+            self._seed(queue)
+            out = os.path.join(tmp, "r1.html")
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                rc = cmd_review(self._args(queue, show="r1", html=out,
+                                           image="scans/r1.jpg"))
+            self.assertEqual(rc, 0)
+            with open(out, encoding="utf-8") as f:
+                self.assertIn('src="scans/r1.jpg"', f.read())
+
+    def test_html_needs_show(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            queue = os.path.join(tmp, "q")
+            self._seed(queue)
+            out = os.path.join(tmp, "r1.html")
+            with redirect_stdout(io.StringIO()):
+                with redirect_stderr(io.StringIO()):
+                    rc = cmd_review(self._args(queue, html=out))
+            self.assertEqual(rc, 1)
+            self.assertFalse(os.path.exists(out))
 
     def test_export_labels_command(self):
         with tempfile.TemporaryDirectory() as tmp:

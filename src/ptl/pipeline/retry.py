@@ -10,7 +10,7 @@ triage ship with it, and a still-failing doc still goes to review.
 Cost is bounded: clean docs cost 1 call, flagged docs at most
 `attempts` (default 2).
 """
-from .triage import DECIDE_AUTO, triage
+from .triage import DECIDE_AUTO, DECIDE_REVIEW, triage
 from .validate_rules import validate
 
 
@@ -24,16 +24,34 @@ def retry_extract(source, extractor, attempts=2):
 
     Returns (doc, conf, validation, triage_decision, attempts_used).
     Stops early on auto_accept. `attempts` below 1 is a ValueError.
+    A malformed reading (extract or validate raising) spends one
+    attempt and is skipped; when every attempt is malformed the
+    last reading returns with validation None and a needs_review
+    decision, so one bad image degrades to review instead of
+    raising.
     """
     if attempts < 1:
         raise ValueError(f"attempts must be >= 1, got {attempts}")
-    best, used = None, 0
+    best, used, last_doc = None, 0, None
     for used in range(1, attempts + 1):
-        doc, conf = extractor.extract(source)
-        validation = validate(doc)
-        decision = triage(doc, validation)
+        try:
+            doc, conf = extractor.extract(source)
+        except Exception:  # noqa: BLE001 - malformed reading, retry
+            continue
+        if isinstance(doc, dict):
+            last_doc = doc
+        try:
+            validation = validate(doc)
+            decision = triage(doc, validation)
+        except Exception:  # noqa: BLE001 - unvalidatable reading, retry
+            continue
         if best is None or _failed_count(validation) < _failed_count(best[2]):
             best = (doc, conf, validation, decision)
         if decision.get("decision") == DECIDE_AUTO:
             break
-    return best + (used,)
+    if best is not None:
+        return best + (used,)
+    return (last_doc if isinstance(last_doc, dict) else {},
+            {}, None,
+            {"decision": DECIDE_REVIEW, "reason": "structure errors",
+             "suggested_regions": []}, used)

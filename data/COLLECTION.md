@@ -1,8 +1,8 @@
 # Phone-to-ledger — dataset collection protocol
 
 Goal: **150 real receipts — 100 dev + 50 held-out test.** The seed set
-(S1–S6, ABB thermal slips) already exists as code fixtures in
-`tests/fixtures.py`; this protocol covers the other ~144, especially the
+(S1–S25, 25 labels in `src/ptl/eval/gold.py`, nearly all ABB thermal)
+already exists; this protocol covers the other ~125, especially the
 document types the seed set has **none** of.
 
 ## 1. What to collect
@@ -11,7 +11,7 @@ Stratify deliberately. Quotas below are minimums, not exact splits.
 
 | Axis | Buckets (minimum each) |
 |---|---|
-| Document type | ABB thermal (have 6), **full-form A4 tax invoice (≥15)**, **handwritten bill (≥15)**, credit note (≥5) |
+| Document type | ABB thermal (have 25), **full-form A4 tax invoice (≥15)**, **handwritten bill (≥15)**, credit note (≥5) |
 | Condition | clean, **faded thermal (10–15 of the 50 test)**, crumpled/creased, **multi-receipt photo (≥10 overall)** |
 | Money shapes | service charge + VAT stack, zero-rated/exempt lines, foreign currency, rounding adjustment, split payment |
 | Language | Thai-only, Thai+English mix, English-heavy (US-origin POS) |
@@ -30,12 +30,13 @@ currency. Prioritise these over more clean ABB slips.
    reappear in test (a Cafe Amazon slip in dev makes one in test easy).
 3. **Faded thermal needs 10–15 of the 50.** S5-style faded, creased slips
    are what real users photograph; report accuracy on them separately.
+   Currently listed in `data/faded.txt`: S5 (S5-level faded print) and
+   S17 (faded invoice, seeded after the Oct-30 examination below).
    Seed judgment (contact sheet + zoomed crops, 2026-10-30): only S5 of
-   S1–S20 is truly faded print; S8/S11/S14/S15/S17/S19 were examined and
+   S1–S20 is truly faded print; S8/S11/S14/S15/S19 were examined and
    are dark print on gray/creased paper, not faded. S21–S23 examined
    2026-10-30 (full views + S22 zooms): legible gray print, none
-   S5-level faded. Recorded in `data/faded.txt`; append test IDs as
-   the 150 grow.
+   S5-level faded. Append test IDs as the 150 grow.
 4. **Include multi-receipt photos** so segmentation is tested end to end.
 5. **Double-label ~20 receipts** (second file
    `labels/<id>.labeler-b.json`). Fields humans disagree on cannot be

@@ -19,9 +19,12 @@ primary, so typical images still cost one call; a fallback crop of a
 non-receipt sheet is rejected downstream by extraction + validation,
 never silently posted.
 
-Crops come back deskewed=False, partial=False: no reliable partial
-signal exists in boxes alone (a complete slip can touch frame edges),
-and perspective-correct rendering is a later stage.
+Crops come back deskewed=False; partial=True when the box runs
+into the frame edge (box_cut_by_frame, 1% margin). Edge contact is
+suspicion, not proof — a tight full capture can touch edges too —
+so e2e routes partial crops to needs_review (extracted, for the
+reviewer) instead of blocking them. Perspective-correct rendering
+is a later stage.
 """
 import base64
 import mimetypes
@@ -29,7 +32,7 @@ import re
 import urllib.error
 import urllib.request
 
-from ..pipeline.segment import Crop
+from ..pipeline.segment import Crop, box_cut_by_frame
 from .base import (ATTEMPTS, Segmenter, new_stats, post_json,
                    record_call)
 from .env import resolve_secret
@@ -137,5 +140,6 @@ class Sam31Segmenter(Segmenter):
             boxes = self._boxes_for_concept(image_url, concept)
         return [Crop(index=i,
                      polygon=[[x1, y1], [x2, y1], [x2, y2], [x1, y2]],
+                     partial=box_cut_by_frame(x1, y1, x2, y2, w, h),
                      image_path=str(image_path))
-                for i, (x1, y1, x2, y2, _w, _h) in enumerate(boxes)]
+                for i, (x1, y1, x2, y2, w, h) in enumerate(boxes)]

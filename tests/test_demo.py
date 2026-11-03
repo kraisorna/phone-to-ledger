@@ -48,6 +48,48 @@ class TestDemoAssets(unittest.TestCase):
         self.assertFalse(v["rules"]["R1"]["pass"])
         self.assertIn("R1", v["hard_failed"])
 
+    def test_recorded_run_matches_current_schema(self):
+        # demo/recorded_run.txt is the no-network fallback: a good live
+        # capture that must show what the current CLI prints, never a
+        # stale schema (it once showed the pre-strip Pillow note with no
+        # review_enqueued key).
+        with open(demo_path("recorded_run.txt"), encoding="utf-8") as f:
+            text = f.read()
+        start = text.index("{")
+        rec, _ = json.JSONDecoder().raw_decode(text[start:])
+        self.assertTrue(rec["ingest"]["exif_stripped"])  # sample.jpg
+        self.assertIn("review_enqueued", rec)
+        self.assertIn("attempts", rec["docs"][0])
+        self.assertIn("partial", rec["crops"][0])
+        self.assertIn("usage", rec)
+        self.assertIn("estimated_usd_total", rec["usage"])
+        self.assertIn("estimated_thb_total", rec["usage"])
+        self.assertIn("estimated_thb", rec["usage"]["extract"])
+        self.assertIn("elapsed_seconds", rec)
+        self.assertEqual(rec["docs"][0]["triage"]["decision"], "auto_accept")
+        row = rec["rows"][0]
+        with open(demo_path("expected.csv"), encoding="utf-8") as f:
+            exp = next(csv.DictReader(f))
+        for key in exp:
+            if key != "source_image_ref":
+                self.assertEqual(str(row[key]), str(exp[key]), key)
+
+    def test_review_seed_matches_bad_sum(self):
+        # demo/review/bad_sum.json is the trust beat's pending
+        # record: it must equal a fresh enqueue of bad_sum.json,
+        # never a hand-edited stale copy.
+        with open(demo_path("bad_sum.json"), encoding="utf-8") as f:
+            doc = json.load(f)
+        with open(demo_path("review/bad_sum.json"),
+                  encoding="utf-8") as f:
+            rec = json.load(f)
+        v = validate(doc)
+        self.assertEqual(rec["doc"], doc)
+        self.assertEqual(rec["validation"], v)
+        self.assertEqual(rec["triage"], triage(doc, v))
+        self.assertEqual(rec["status"], "pending")
+        self.assertEqual(rec["triage"]["decision"], "needs_review")
+
 
 if __name__ == "__main__":
     unittest.main()

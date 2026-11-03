@@ -91,13 +91,16 @@ class TestSpark(unittest.TestCase):
         self.assertEqual(payload["model"], MODEL)
         self.assertFalse(payload["stream"])
         self.assertEqual(payload["temperature"], 0)
+        self.assertEqual(payload["max_output_tokens"], 8000)
         fmt = payload["text"]["format"]
         self.assertEqual(fmt["type"], "json_schema")
         self.assertIn("totals", fmt["schema"]["properties"])
         content = payload["input"][0]["content"]
         self.assertTrue(content[1]["image_url"].startswith(
             "data:image/jpeg;base64,"))
-        for phrase in ("satang", "YYYY-MM-DD", "recompute", "ambiguous"):
+        for phrase in ("satang", "YYYY-MM-DD", "recompute", "ambiguous",
+                       "15+ digits", "R-prefixed digit run",
+                       "is_category_subtotal", "trailing branch tail"):
             self.assertIn(phrase, PROMPT)
             self.assertIn(phrase, content[0]["text"])
 
@@ -135,6 +138,26 @@ class TestSpark(unittest.TestCase):
             (req,), _ = opener.call_args
             self.assertNotIn("reasoning", json.loads(req.data))
 
+    def test_max_output_tokens_override(self):
+        # Flake spend guard (smoke #78: ~20K out/call); None disables.
+        with tempfile.TemporaryDirectory() as tmp:
+            img = _write(os.path.join(tmp, "r.jpg"))
+            opener = _urlopen_ok(_doc(json.dumps(fresh())))
+            with mock.patch("ptl.adapters.spark.urllib.request.urlopen",
+                            opener):
+                SparkExtractor(api_key="k",
+                               max_output_tokens=4000).extract(img)
+            (req,), _ = opener.call_args
+            self.assertEqual(json.loads(req.data)["max_output_tokens"],
+                             4000)
+            opener = _urlopen_ok(_doc(json.dumps(fresh())))
+            with mock.patch("ptl.adapters.spark.urllib.request.urlopen",
+                            opener):
+                SparkExtractor(api_key="k",
+                               max_output_tokens=None).extract(img)
+            (req,), _ = opener.call_args
+            self.assertNotIn("max_output_tokens", json.loads(req.data))
+
     def test_extract_postprocess_flag(self):
         skel = {"schema_version": "1.0", "document_type": "receipt",
                 "issuer": {"legal_name": None, "brand_name": "Jones Salad",
@@ -162,6 +185,56 @@ class TestSpark(unittest.TestCase):
         self.assertEqual(line["quantity"], 2)
         self.assertEqual(doc["issuer"]["legal_name"], "Jones Salad")
 
+    def test_crop_source_adds_region_focus(self):
+        # A Crop with a polygon scopes the prompt to its box, so one
+        # photo can hold several receipts without every extraction
+        # returning the same whole-image result.
+        png = (b"\x89PNG\r\n\x1a\n" + (13).to_bytes(4, "big") + b"IHDR"
+               + (200).to_bytes(4, "big") + (100).to_bytes(4, "big")
+               + b"\x08\x02" + b"\x00" * 10)
+        ext = SparkExtractor(api_key="k")
+        opener = _urlopen_ok(_doc(json.dumps(fresh())))
+        with tempfile.TemporaryDirectory() as tmp:
+            img = _write(os.path.join(tmp, "r.png"), png)
+            crop = Crop(index=0, polygon=[[0, 0], [100, 50]],
+                        image_path=img)
+            with mock.patch("ptl.adapters.spark.urllib.request.urlopen",
+                            opener):
+                ext.extract(crop)
+        (req,), _ = opener.call_args
+        text = json.loads(req.data)["input"][0]["content"][0]["text"]
+        self.assertTrue(text.startswith(PROMPT))
+        self.assertIn("x0=0.0, y0=0.0, x1=0.5, y1=0.5", text)
+
+    def test_path_source_prompt_unchanged(self):
+        # Bytes/path sources carry no region: the prompt ships
+        # exactly as PROMPT, no drift for the single-receipt case.
+        ext = SparkExtractor(api_key="k")
+        opener = _urlopen_ok(_doc(json.dumps(fresh())))
+        with tempfile.TemporaryDirectory() as tmp:
+            img = _write(os.path.join(tmp, "r.jpg"))
+            with mock.patch("ptl.adapters.spark.urllib.request.urlopen",
+                            opener):
+                ext.extract(img)
+        (req,), _ = opener.call_args
+        text = json.loads(req.data)["input"][0]["content"][0]["text"]
+        self.assertEqual(text, PROMPT)
+
+    def test_crop_without_dims_skips_focus(self):
+        # Unparseable bytes: no region clause, whole-image fallback.
+        ext = SparkExtractor(api_key="k")
+        opener = _urlopen_ok(_doc(json.dumps(fresh())))
+        with tempfile.TemporaryDirectory() as tmp:
+            img = _write(os.path.join(tmp, "r.jpg"), b"x" * 40)
+            crop = Crop(index=0, polygon=[[0, 0], [10, 10]],
+                        image_path=img)
+            with mock.patch("ptl.adapters.spark.urllib.request.urlopen",
+                            opener):
+                ext.extract(crop)
+        (req,), _ = opener.call_args
+        text = json.loads(req.data)["input"][0]["content"][0]["text"]
+        self.assertEqual(text, PROMPT)
+
     def test_retry_then_success(self):
         ext = SparkExtractor(api_key="k")
         good = _urlopen_ok(_doc(json.dumps(fresh())))
@@ -187,6 +260,39 @@ class TestSpark(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     ext.extract(img)
         self.assertEqual(opener.call_count, 2)
+
+    def test_junk_keys_trigger_reroll(self):
+        junk = dict(fresh(), **{"can_claim_input_vat¡": False})
+        first = _urlopen_ok(_doc(json.dumps(junk)))
+        second = _urlopen_ok(_doc(json.dumps(fresh())))
+        opener = mock.MagicMock(side_effect=[first.return_value,
+                                             second.return_value])
+        ext = SparkExtractor(api_key="k")
+        with tempfile.TemporaryDirectory() as tmp:
+            img = _write(os.path.join(tmp, "r.jpg"))
+            with mock.patch("ptl.adapters.spark.urllib.request.urlopen",
+                            opener):
+                doc, _ = ext.extract(img)
+        self.assertEqual(opener.call_count, 2)
+        self.assertNotIn("can_claim_input_vat¡", doc)
+        self.assertEqual(doc["totals"]["grand_total"], 10700)
+
+    def test_double_junk_keeps_first_parseable(self):
+        # Both attempts dirty: keep the first (stripped downstream),
+        # never accept a blind second roll over it.
+        junk = dict(fresh(), **{"can_claim_input_vat¡": False})
+        opener = mock.MagicMock(
+            side_effect=lambda *a, **k: _urlopen_ok(
+                _doc(json.dumps(junk)))())
+        ext = SparkExtractor(api_key="k")
+        with tempfile.TemporaryDirectory() as tmp:
+            img = _write(os.path.join(tmp, "r.jpg"))
+            with mock.patch("ptl.adapters.spark.urllib.request.urlopen",
+                            opener):
+                doc, _ = ext.extract(img)
+        self.assertEqual(opener.call_count, 2)
+        self.assertNotIn("can_claim_input_vat¡", doc)
+        self.assertEqual(doc["totals"]["grand_total"], 10700)
 
     def test_invalid_structure_returns_best_effort(self):
         ext = SparkExtractor(api_key="k")

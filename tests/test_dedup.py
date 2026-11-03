@@ -28,6 +28,7 @@ class TestSeenStore(unittest.TestCase):
         store = SeenStore.load("/no/such/seen.json")
         self.assertEqual(store.to_seen(),
                          {"doc_keys": set(), "fuzzy_keys": set(),
+                          "content_keys": set(),
                           "image_hashes": set()})
 
     def test_roundtrip(self):
@@ -62,6 +63,7 @@ class TestSeenStore(unittest.TestCase):
         other = fresh()
         other["document_number"] = "ABB-9999"
         other["pos_identifier"] = "E999999999999"
+        other["line_items"][0]["line_total"] = 1
         v = validate(other, store.to_seen())
         self.assertFalse(v["rules"]["R10"]["pass"])
         self.assertEqual(v["rules"]["R10"]["detail"], "duplicate image hash")
@@ -127,6 +129,48 @@ class TestRephotoPairs(unittest.TestCase):
         v = validate(other, store.to_seen())
         self.assertTrue(v["rules"]["R10"]["pass"])
 
+    def test_s21_s28_rephoto_caught_by_content_key(self):
+        # S28 is a re-photo of S21's slip (zoom-verified: same
+        # second-stamp, items, totals), but S21 carries no receipt
+        # number and no POS id, so both spec keys are None and the
+        # old code let the re-photo through. The (seller, date,
+        # total, lines) content key must fire.
+        store = SeenStore()
+        store.record(fresh_seed("S21"))
+        v = validate(
+            self._rephoto("S21", "s28.jpg", "placeholder-hash-s28"),
+            store.to_seen())
+        self.assertFalse(v["rules"]["R10"]["pass"])
+        self.assertIn("seller, date, total, lines",
+                      v["rules"]["R10"]["detail"])
+
+    def test_content_key_survives_json_roundtrip(self):
+        # Nested line tuples must restore as tuples, or a saved
+        # store silently stops matching after reload.
+        store = SeenStore()
+        store.record(fresh_seed("S21"))
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "seen.json")
+            store.save(path)
+            back = SeenStore.load(path)
+        self.assertEqual(back.to_seen(), store.to_seen())
+        v = validate(
+            self._rephoto("S21", "s28.jpg", "placeholder-hash-s28"),
+            back.to_seen())
+        self.assertFalse(v["rules"]["R10"]["pass"])
+
+    def test_content_key_needs_same_lines(self):
+        # Same seller, date and grand but different dishes: not a
+        # duplicate — the line multiset is what separates two
+        # same-priced tables.
+        store = SeenStore()
+        store.record(fresh_seed("S21"))
+        other = self._rephoto("S21", "other.jpg",
+                              "placeholder-hash-other")
+        other["line_items"][0]["description"] = "เป๊ปซี่"
+        v = validate(other, store.to_seen())
+        self.assertTrue(v["rules"]["R10"]["pass"])
+
 
 class TestSeenCli(unittest.TestCase):
     def _doc(self, tmp, doc=None):
@@ -144,6 +188,15 @@ class TestSeenCli(unittest.TestCase):
                 self.assertEqual(cmd_validate(args), 0)
             # Validating never records: no store file, no self-dup.
             self.assertFalse(os.path.exists(seen))
+
+    def test_validate_low_confidence_exit_2(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            doc = fresh()
+            doc["field_confidence"] = {"issuer.legal_name": 0.3}
+            path = self._doc(tmp, doc)
+            args = argparse.Namespace(doc=path, force=False, seen="")
+            with redirect_stdout(io.StringIO()):
+                self.assertEqual(cmd_validate(args), 2)
 
     def test_export_records_then_validate_flags(self):
         with tempfile.TemporaryDirectory() as tmp:

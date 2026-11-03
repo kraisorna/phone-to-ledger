@@ -11,15 +11,58 @@ def content_hash(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def strip_exif_note(path: str):
-    """Record that EXIF must be stripped before storage.
+def strip_exif(data: bytes) -> bytes:
+    """Return JPEG bytes with EXIF APP1 segments removed (stdlib-only).
 
-    Real stripping needs Pillow (ImageOps.exif_transpose + re-save without
-    exif); this returns the ingest record so the pipeline works stdlib-only
-    and the adapter fills in pixels when Pillow is available.
+    Walks markers between SOI and SOS; drops APP1 segments whose payload
+    starts with b"Exif\\x00\\x00" (the GPS-bearing phone metadata); copies
+    everything else verbatim, including scan data from SOS to EOF.
+    Non-JPEG input and truncated/corrupt headers pass through unchanged.
     """
+    if len(data) < 4 or data[0:2] != b"\xff\xd8":
+        return data
+    out = bytearray(data[0:2])
+    i, n = 2, len(data)
+    while i + 1 < n:
+        if data[i] != 0xFF:
+            out += data[i:]
+            return bytes(out)
+        while i + 1 < n and data[i + 1] == 0xFF:  # fill bytes
+            i += 1
+        if i + 1 >= n:
+            break
+        code = data[i + 1]
+        if code == 0xDA:  # SOS: scan data follows; copy to EOF verbatim
+            out += data[i:]
+            return bytes(out)
+        if code in (0xD9, 0x01) or 0xD0 <= code <= 0xD7:
+            out += data[i:i + 2]  # standalone markers
+            i += 2
+            continue
+        if i + 3 >= n:
+            out += data[i:]
+            return bytes(out)
+        seglen = (data[i + 2] << 8) + data[i + 3]
+        if seglen < 2 or i + 2 + seglen > n:
+            out += data[i:]
+            return bytes(out)
+        seg = data[i:i + 2 + seglen]
+        is_exif = (code == 0xE1 and seglen >= 8
+                   and seg[4:10] == b"Exif\x00\x00")
+        if not is_exif:
+            out += seg
+        i += 2 + seglen
+    out += data[i:]
+    return bytes(out)
+
+
+def strip_exif_note(path: str, stripped=False):
+    """Record whether EXIF APP1 was removed before processing."""
+    if stripped:
+        return {"path": path, "exif_stripped": True,
+                "note": "EXIF APP1 removed stdlib-only before processing"}
     return {"path": path, "exif_stripped": False,
-            "note": "strip EXIF with Pillow before persisting"}
+            "note": "no EXIF APP1 found; bytes passed through"}
 
 
 def mask_pii(text: str) -> str:
@@ -39,5 +82,5 @@ def ingest_bytes(data: bytes, source_path=""):
         "image_hash": content_hash(data),
         "size_bytes": len(data),
         "source_path": source_path,
-        **strip_exif_note(source_path),
+        **strip_exif_note(source_path, strip_exif(data) != data),
     }

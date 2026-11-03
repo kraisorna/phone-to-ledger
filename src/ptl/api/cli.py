@@ -1,17 +1,21 @@
-"""`ptl` CLI: ingest / validate / export / eval / baseline / e2e / review."""
+"""`ptl` CLI: ingest / validate / export / eval / baseline / labels / e2e / review."""
 import argparse
 import json
 import sys
 
 from ..eval.run_baseline import SYSTEMS, run_baseline
-from ..eval.run_eval import run_eval
+from ..eval.run_eval import run_eval, write_labels
 from .e2e import NO_RECEIPTS, run_e2e
 from ..pipeline.dedup import SeenStore
 from ..pipeline.ingest import ingest_bytes, mask_pii
 from ..pipeline.triage import triage
 from ..pipeline.validate_rules import validate
-from ..pipeline.export import append_csv, to_csv, to_row
-from ..review.queue import ReviewQueue
+from ..pipeline.export import append_csv, to_csv, to_row, to_xlsx
+
+
+def _is_xlsx(path):
+    return bool(path) and str(path).lower().endswith(".xlsx")
+from ..review.queue import ReviewQueue, to_html
 from ..schema import check_structure, derive_claim_flag
 
 
@@ -38,7 +42,9 @@ def cmd_validate(args):
     out["validation"] = validation
     out["triage"] = triage(doc, validation)
     print(json.dumps(out, indent=2))
-    return 0 if not validation["requires_human_review"] else 2
+    review = (validation["requires_human_review"]
+              or out["triage"]["decision"] != "auto_accept")
+    return 2 if review else 0
 
 
 def cmd_export(args):
@@ -62,7 +68,9 @@ def cmd_export(args):
                   file=sys.stderr)
             excluded += 1
             continue
-        status = ("needs_review" if validation["requires_human_review"]
+        triage_decision = triage(doc, validation)["decision"]
+        status = ("needs_review" if (validation["requires_human_review"]
+                  or triage_decision != "auto_accept")
                   else "auto_accept")
         if any(r in validation.get("hard_failed", []) for r in ("R1", "R2", "R3", "R4", "R5", "R6")):
             status = "blocked:" + ",".join(validation["hard_failed"])
@@ -75,14 +83,20 @@ def cmd_export(args):
     if not rows:
         return 3
     if args.append:
+        if _is_xlsx(args.out):
+            print("export: --append needs CSV, not XLSX", file=sys.stderr)
+            return 1
         try:
             append_csv(args.out, rows)
         except ValueError as e:
             print(f"export: {e}", file=sys.stderr)
             return 1
     elif args.out:
-        with open(args.out, "w", encoding="utf-8") as f:
-            f.write(to_csv(rows))
+        if _is_xlsx(args.out):
+            to_xlsx(rows, args.out)
+        else:
+            with open(args.out, "w", encoding="utf-8") as f:
+                f.write(to_csv(rows))
     else:
         sys.stdout.write(to_csv(rows))
     return 3 if excluded else 0
@@ -103,6 +117,14 @@ def cmd_baseline(args):
     return 0 if preds else 1
 
 
+def cmd_labels(args):
+    from ptl.eval.gold import SEEDS
+    ids = write_labels(args.out, SEEDS)
+    print(json.dumps({"labels": len(ids), "out": args.out,
+                      "ids": ids}, indent=2))
+    return 0
+
+
 def cmd_e2e(args):
     seg = ext = None
     if args.api_key or args.concept != "receipt":
@@ -113,7 +135,9 @@ def cmd_e2e(args):
     store = SeenStore.load(args.seen) if args.seen else None
     try:
         result = run_e2e(args.image, segmenter=seg, extractor=ext,
-                         seen_store=store)
+                         seen_store=store,
+                         review_queue=args.review_queue or None,
+                         attempts=args.attempts)
     except (OSError, ValueError, RuntimeError) as e:
         print(f"e2e failed: {e}", file=sys.stderr)
         return 1
@@ -124,12 +148,17 @@ def cmd_e2e(args):
             json.dump(result, f, indent=2, ensure_ascii=False)
     if args.csv:
         if args.append:
+            if _is_xlsx(args.csv):
+                print("e2e: --append needs CSV, not XLSX", file=sys.stderr)
+                return 1
             from ..pipeline.export import append_csv
             try:
                 append_csv(args.csv, result["rows"])
             except ValueError as e:
                 print(f"e2e: {e}", file=sys.stderr)
                 return 1
+        elif _is_xlsx(args.csv):
+            to_xlsx(result["rows"], args.csv)
         else:
             with open(args.csv, "w", encoding="utf-8") as f:
                 f.write(result["csv"])
@@ -160,6 +189,12 @@ def cmd_review(args):
         except (OSError, ValueError) as e:
             print(f"cannot show {args.show}: {e}", file=sys.stderr)
             return 1
+        if args.html:
+            with open(args.html, "w", encoding="utf-8") as f:
+                f.write(to_html(rec, image_uri=args.image or None))
+            print(json.dumps({"doc_id": rec["doc_id"], "html": args.html},
+                             indent=2))
+            return 0
         print(json.dumps(rec, indent=2, ensure_ascii=False))
         return 0
     if args.resolve:
@@ -182,6 +217,9 @@ def cmd_review(args):
     if args.export_labels:
         print(json.dumps(queue.export_labels(args.export_labels), indent=2))
         return 0
+    if args.html:
+        print("html needs --show ID", file=sys.stderr)
+        return 1
     print("review needs one of --pending, --show, --resolve, --export-labels",
           file=sys.stderr)
     return 1
@@ -220,6 +258,9 @@ def build_parser():
     pb.add_argument("--images", required=True, help="dir of receipt images")
     pb.add_argument("--out", required=True, help="preds JSON to write")
     pb.set_defaults(func=cmd_baseline)
+    pl = sub.add_parser("labels", help="dump seed gold to a labels dir")
+    pl.add_argument("--out", required=True, help="labels dir to write")
+    pl.set_defaults(func=cmd_labels)
     pe2 = sub.add_parser("e2e", help="image -> segment -> extract -> "
                          "validate -> triage -> ledger rows (exits: 2 "
                          "needs review, 3 no rows, 4 no receipts found)")
@@ -229,6 +270,10 @@ def build_parser():
     pe2.add_argument("--append", action="store_true",
                      help="append rows to --csv instead of overwriting")
     pe2.add_argument("--seen", default="", help="seen-store JSON")
+    pe2.add_argument("--review-queue", default="",
+                     help="enqueue flagged docs for human review")
+    pe2.add_argument("--attempts", type=int, default=2,
+                     help="extraction attempts per crop (default 2)")
     pe2.add_argument("--concept", default="receipt",
                      help="SAM concept phrase (default: receipt)")
     pe2.add_argument("--api-key", default="",
@@ -245,6 +290,10 @@ def build_parser():
     pr.add_argument("--correction", default="")
     pr.add_argument("--export-labels", default="",
                     help="export resolved corrections to a labels dir")
+    pr.add_argument("--html", default="",
+                    help="with --show: write side-by-side review page")
+    pr.add_argument("--image", default="",
+                    help="with --html: override the page's image path")
     pr.set_defaults(func=cmd_review)
     return p
 

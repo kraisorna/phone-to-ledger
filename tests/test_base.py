@@ -136,7 +136,20 @@ class TestPostJson(unittest.TestCase):
                                      "output_tokens": 3}}, 1.5)
         record_call(stats, {"output": []}, 0.5)
         self.assertEqual(stats, {"calls": 2, "input_tokens": 10,
-                                 "output_tokens": 3, "seconds": 2.0})
+                                 "output_tokens": 3, "reasoning_tokens": 0,
+                                 "seconds": 2.0})
+
+    def test_reasoning_tokens_accumulated(self):
+        # Responses-style output_tokens_details split reasoning out
+        # (live: ~half of output); chat-style and missing stay 0.
+        stats = new_stats()
+        record_call(stats, {"usage": {
+            "output_tokens": 2381,
+            "output_tokens_details": {"reasoning_tokens": 1197}}}, 1.0)
+        record_call(stats, {"usage": {"completion_tokens": 5}}, 1.0)
+        record_call(stats, {"output": []}, 1.0)
+        self.assertEqual(stats["reasoning_tokens"], 1197)
+        self.assertEqual(stats["output_tokens"], 2386)
 
     def test_on_response_fires_per_success(self):
         seen = []

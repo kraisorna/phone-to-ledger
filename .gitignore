@@ -2,6 +2,7 @@
 # environment first, then from a project-root .env (see adapters/env.py).
 .env
 .env.*
+!.env.example
 
 # Python
 .venv/
@@ -24,10 +25,13 @@ data/labels/
 *.xlsx
 
 # Runtime artifacts (regenerable; never commit). Anchored at root so
-# demo/ fixtures (demo/ledger.csv, demo/review/) stay committable.
+# demo/ fixtures (demo/expected.csv, demo/review/) stay committable.
 /review/
 /seen.json
 /ledger.csv
+# Doc-example outputs (README/DEMO run e2e into these names).
+demo/out.json
+demo/ledger.csv
 
 # macOS
 .DS_Store

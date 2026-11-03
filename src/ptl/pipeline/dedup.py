@@ -17,10 +17,18 @@ import os
 from .validate_rules import dup_keys
 
 
+def _deep_tuple(node):
+    """Restore JSON list nesting to tuples for content keys."""
+    if isinstance(node, list):
+        return tuple(_deep_tuple(v) for v in node)
+    return node
+
+
 class SeenStore:
     def __init__(self):
         self.doc_keys = set()
         self.fuzzy_keys = set()
+        self.content_keys = set()
         self.image_hashes = set()
 
     @classmethod
@@ -33,12 +41,15 @@ class SeenStore:
             data = json.load(f)
         store.doc_keys = {tuple(k) for k in data.get("doc_keys", [])}
         store.fuzzy_keys = {tuple(k) for k in data.get("fuzzy_keys", [])}
+        store.content_keys = {_deep_tuple(k)
+                              for k in data.get("content_keys", [])}
         store.image_hashes = set(data.get("image_hashes", []))
         return store
 
     def save(self, path):
         data = {"doc_keys": sorted(self.doc_keys),
                 "fuzzy_keys": sorted(self.fuzzy_keys),
+                "content_keys": sorted(self.content_keys),
                 "image_hashes": sorted(self.image_hashes)}
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, sort_keys=True)
@@ -48,6 +59,7 @@ class SeenStore:
         """Return the `seen` mapping shape `validate()` expects."""
         return {"doc_keys": set(self.doc_keys),
                 "fuzzy_keys": set(self.fuzzy_keys),
+                "content_keys": set(self.content_keys),
                 "image_hashes": set(self.image_hashes)}
 
     def record(self, doc):
@@ -57,6 +69,8 @@ class SeenStore:
             self.doc_keys.add(keys["doc_key"])
         if keys["fuzzy_key"] is not None:
             self.fuzzy_keys.add(keys["fuzzy_key"])
+        if keys["content_key"] is not None:
+            self.content_keys.add(keys["content_key"])
         if keys["image_hash"] is not None:
             self.image_hashes.add(keys["image_hash"])
         return keys

@@ -58,6 +58,16 @@ class TestSam31(unittest.TestCase):
         self.assertFalse(crops[0].deskewed)
         self.assertFalse(crops[0].partial)
 
+    def test_edge_touching_box_marks_partial(self):
+        text = "<|box;x1=0;y1=20;x2=110;y2=220;w=200;h=400|>"
+        seg = Sam31Segmenter(api_key="k")
+        with tempfile.TemporaryDirectory() as tmp:
+            img = _write(os.path.join(tmp, "r.jpg"), b"fake-jpeg-bytes")
+            with mock.patch("ptl.adapters.sam31.urllib.request.urlopen",
+                            _urlopen_ok(_doc(text))):
+                crops = seg.segment(img)
+        self.assertTrue(crops[0].partial)
+
     def test_request_shape(self):
         seg = Sam31Segmenter(api_key="k", concept="receipt")
         opener = _urlopen_ok(_doc(TEXT_TWO))

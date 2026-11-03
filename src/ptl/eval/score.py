@@ -26,10 +26,26 @@ def _get(doc, dotted):
     return cur
 
 
+_CO_LTD = re.compile(r"\bco\.{0,2},?\s*ltd\.?(?!\w)", re.IGNORECASE)
+_COMPANY_LIMITED = re.compile(r"\bcompany\s+limited(?!\w)", re.IGNORECASE)
+_DOT_COMMA_RUN = re.compile(r"[.,]{2,}")
+
+
 def normalise_legal(name):
+    """Fold whitespace + Latin limited-suffix variants (05 sec 8).
+
+    "Co.,Ltd." spellings — punctuation, spacing, case, print
+    misprints ("CO..LTD", "CO,.LTD."), and spelled-out "company
+    limited" — all fold to "co ltd". Thai legal forms (บมจ./บจก./
+    จำกัด: distinct company types) and the name stem, including
+    its case, are left untouched.
+    """
     if name is None:
         return None
     s = unicodedata.normalize("NFKC", name).strip()
+    s = _DOT_COMMA_RUN.sub(".", s)
+    s = _COMPANY_LIMITED.sub("co ltd", s)
+    s = _CO_LTD.sub("co ltd", s)
     s = re.sub(r"\s+", " ", s)
     return s
 

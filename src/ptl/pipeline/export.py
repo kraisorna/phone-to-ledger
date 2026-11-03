@@ -11,6 +11,9 @@ never merged. ABB kept, marked unclaimable.
 import csv
 import io
 import os
+import re
+import zipfile
+from xml.sax.saxutils import escape
 
 from ..money import to_thb
 
@@ -80,14 +83,74 @@ def append_csv(path, rows):
     return path
 
 
+_XML_BAD = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+
+
+def _col_letter(n):
+    out = ""
+    while True:
+        n, rem = divmod(n, 26)
+        out = chr(65 + rem) + out
+        if not n:
+            return out
+        n -= 1
+
+
+def _sheet_xml(rows):
+    lines = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
+             '<worksheet xmlns="http://schemas.openxmlformats.org/'
+             'spreadsheetml/2006/main"><sheetData>']
+    for i, values in enumerate([COLUMNS] + [[r.get(c, "") for c in COLUMNS]
+                                            for r in rows], start=1):
+        cells = []
+        for j, v in enumerate(values):
+            text = escape(_XML_BAD.sub("", str(v)))
+            cells.append(f'<c r="{_col_letter(j)}{i}" t="inlineStr">'
+                         f"<is><t>{text}</t></is></c>")
+        lines.append(f"<row r=\"{i}\">" + "".join(cells) + "</row>")
+    lines.append("</sheetData></worksheet>")
+    return "".join(lines)
+
+
 def to_xlsx(rows, path):
-    """Write XLSX; needs openpyxl (optional dependency)."""
-    from openpyxl import Workbook
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "ledger"
-    ws.append(COLUMNS)
-    for r in rows:
-        ws.append([r.get(c, "") for c in COLUMNS])
-    wb.save(path)
+    """Write a minimal stdlib-only XLSX ledger (inline strings)."""
+    content_types = ('<?xml version="1.0" encoding="UTF-8"?>'
+                     '<Types xmlns="http://schemas.openxmlformats.org/'
+                     'package/2006/content-types">'
+                     '<Default Extension="rels" ContentType="application/'
+                     'vnd.openxmlformats-package.relationships+xml"/>'
+                     '<Default Extension="xml" ContentType="application/xml"/>'
+                     '<Override PartName="/xl/workbook.xml" ContentType='
+                     '"application/vnd.openxmlformats-officedocument.'
+                     'spreadsheetml.sheet.main+xml"/>'
+                     '<Override PartName="/xl/worksheets/sheet1.xml" '
+                     'ContentType="application/vnd.openxmlformats-'
+                     'officedocument.spreadsheetml.worksheet+xml"/>'
+                     "</Types>")
+    rels = ('<?xml version="1.0" encoding="UTF-8"?>'
+            '<Relationships xmlns="http://schemas.openxmlformats.org/'
+            'package/2006/relationships">'
+            '<Relationship Id="rId1" Type="http://schemas.'
+            'openxmlformats.org/officeDocument/2006/relationships/'
+            'officeDocument" Target="xl/workbook.xml"/>'
+            "</Relationships>")
+    workbook = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                '<workbook xmlns="http://schemas.openxmlformats.org/'
+                'spreadsheetml/2006/main" xmlns:r="http://schemas.'
+                'openxmlformats.org/officeDocument/2006/relationships">'
+                '<sheets><sheet name="ledger" sheetId="1" r:id="rId1"/>'
+                "</sheets></workbook>")
+    wb_rels = ('<?xml version="1.0" encoding="UTF-8"?>'
+               '<Relationships xmlns="http://schemas.openxmlformats.org/'
+               'package/2006/relationships">'
+               '<Relationship Id="rId1" Type="http://schemas.'
+               'openxmlformats.org/officeDocument/2006/relationships/'
+               'worksheet" Target="worksheets/sheet1.xml"/>'
+               "</Relationships>")
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("[Content_Types].xml", content_types)
+        z.writestr("_rels/.rels", rels)
+        z.writestr("xl/workbook.xml", workbook)
+        z.writestr("xl/_rels/workbook.xml.rels", wb_rels)
+        z.writestr("xl/worksheets/sheet1.xml", _sheet_xml(rows))
     return path

@@ -88,5 +88,29 @@ class TestResolveSecret(unittest.TestCase):
                 self.assertIsNone(resolve_secret("EMPTY", start=tmp))
 
 
+class TestEnvExample(unittest.TestCase):
+    # A fresh clone needs to discover MODEL_API_KEY: .env.example
+    # documents it and must stay committable while .env stays ignored.
+    ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    def test_example_committable_and_valid(self):
+        import shutil
+        import subprocess
+        path = os.path.join(self.ROOT, ".env.example")
+        self.assertTrue(os.path.isfile(path))
+        keys = [ln.split("=", 1)[0] for ln in
+                open(path, encoding="utf-8").read().splitlines()
+                if ln and not ln.startswith("#") and "=" in ln]
+        self.assertIn("MODEL_API_KEY", keys)
+        if shutil.which("git") is None:
+            self.skipTest("git unavailable")
+        self.assertEqual(subprocess.run(
+            ["git", "check-ignore", "-q", ".env.example"],
+            cwd=self.ROOT).returncode, 1)
+        self.assertEqual(subprocess.run(
+            ["git", "check-ignore", "-q", ".env"],
+            cwd=self.ROOT).returncode, 0)
+
+
 if __name__ == "__main__":
     unittest.main()

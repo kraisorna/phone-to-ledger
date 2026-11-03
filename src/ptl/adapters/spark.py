@@ -36,7 +36,7 @@ import urllib.request
 
 from ..pipeline.extract import (EXTRACTION_PROMPT, build_document,
                                 normalize_keys)
-from ..pipeline.segment import Crop
+from ..pipeline.segment import Crop, image_dimensions, region_focus_text
 from ..schema import check_structure, load_schema
 from .base import (ATTEMPTS, Extractor, new_stats, post_json,
                    record_call, stamp_source)
@@ -84,9 +84,14 @@ class SparkExtractor(Extractor):
     # timeout=600: server latency observed up to 257s per call; 300
     # tripped repeatedly (S5/S6 twice, an S1 probe once) while 600s
     # overrides on the same docs succeeded. Matches Glimmer's default.
+    # max_output_tokens=8000: normal receipts use ~2K output tokens;
+    # smoke #78's spew burned ~20K/call (2 calls, ฿6.14). The cap is
+    # 4x headroom over normal and bounds flake spend; a truncated
+    # reply fails JSON parse and falls into the existing re-roll /
+    # validation-retry path, never a silent partial.
     def __init__(self, api_key=None, endpoint=BASE_URL, model=MODEL,
                  timeout=600, temperature=0, attempts=ATTEMPTS,
-                 reasoning_effort="low"):
+                 reasoning_effort="low", max_output_tokens=8000):
         self.api_key = api_key or resolve_secret("MODEL_API_KEY")
         self.endpoint = (endpoint or BASE_URL).rstrip("/")
         self.model = model
@@ -94,6 +99,7 @@ class SparkExtractor(Extractor):
         self.temperature = temperature
         self.attempts = attempts
         self.reasoning_effort = reasoning_effort
+        self.max_output_tokens = max_output_tokens
         self.stats = new_stats()
 
     def _post(self, payload):
@@ -158,11 +164,18 @@ class SparkExtractor(Extractor):
         mime, raw = self._image_payload(source)
         data_url = (f"data:{mime};base64,"
                     + base64.b64encode(raw).decode("ascii"))
+        text = PROMPT
+        if isinstance(source, Crop) and source.polygon:
+            dims = image_dimensions(raw)
+            if dims is not None:
+                focus = region_focus_text(source, *dims)
+                if focus:
+                    text = PROMPT + "\n\n" + focus
         payload = {
             "model": self.model,
             "stream": False,
             "input": [{"type": "message", "role": "user", "content": [
-                {"type": "input_text", "text": PROMPT},
+                {"type": "input_text", "text": text},
                 {"type": "input_image", "image_url": data_url},
             ]}],
             "text": {"format": {"type": "json_schema",
@@ -173,15 +186,19 @@ class SparkExtractor(Extractor):
             payload["temperature"] = self.temperature
         if self.reasoning_effort is not None:
             payload["reasoning"] = {"effort": self.reasoning_effort}
+        if self.max_output_tokens is not None:
+            payload["max_output_tokens"] = self.max_output_tokens
         parsed = None
         for _ in range(2):
             text = self._output_text(self._post(payload))
             try:
-                parsed = normalize_keys(json.loads(text))
+                candidate = normalize_keys(json.loads(text))
             except ValueError:
-                parsed = None
                 continue
-            if not check_structure(parsed):
+            if parsed is None:
+                parsed = candidate
+            if not check_structure(candidate):
+                parsed = candidate
                 break
         if not isinstance(parsed, dict):
             raise ValueError("Spark returned no parseable JSON after retry")

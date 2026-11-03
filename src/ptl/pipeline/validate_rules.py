@@ -82,9 +82,20 @@ def r3_vat_inclusive(doc):
 
 
 def r4_vat_split(doc):
-    """vatable_amount + vat_amount == grand (when both present)."""
+    """vatable_amount + vat_amount == grand (when both present).
+
+    Both missing is a consistent non-itemized slip (nine golds);
+    vat without vatable matches real ABB slips (S20 gold). But
+    vatable without vat never appears in gold: the split is
+    unverifiable, so it fails instead of auto-accepting a row
+    with an empty vat cell.
+    """
     t = _totals(doc)
     if t.get("vatable_amount") is None or t.get("vat_amount") is None:
+        if (t.get("vatable_amount") is not None
+                and t.get("vat_amount") is None):
+            return False, (f"vatable_amount={t['vatable_amount']} "
+                           "present but vat_amount missing")
         return True, "vatable_amount/vat_amount missing; skipped"
     expect = (t["vatable_amount"] + t["vat_amount"]
               + (t.get("non_vatable_amount") or 0))
@@ -213,12 +224,39 @@ def dup_keys(doc):
     fuzzy_key = fuzzy if all(v is not None for v in fuzzy) else None
     image_hash = (doc.get("source") or {}).get("image_hash") or None
     return {"doc_key": doc_key, "fuzzy_key": fuzzy_key,
+            "content_key": _content_key(doc, seller),
             "image_hash": image_hash}
+
+
+def _content_key(doc, seller):
+    """R10 content key for slips with no usable number/POS identity.
+
+    (seller, issue_date, grand_total, sorted line (desc, total)
+    multiset). Catches re-photos like S21/S28 that carry no receipt
+    number and no POS id, where both spec keys are None. Descriptions
+    are whitespace-folded and lowercased so live transcription wobble
+    cannot silently split the key. None unless every charge line
+    carries a description and a total.
+    """
+    issue = (doc.get("dates") or {}).get("issue_date")
+    grand = _totals(doc).get("grand_total")
+    if seller is None or issue is None or grand is None:
+        return None
+    sig = []
+    for li in _charge_lines(doc):
+        desc = li.get("description")
+        total = li.get("line_total")
+        if desc is None or total is None:
+            return None
+        sig.append((" ".join(str(desc).split()).lower(), total))
+    if not sig:
+        return None
+    return (seller, issue, grand, tuple(sorted(sig)))
 
 
 def r10_duplicates(doc, seen=None):
     """duplicate keys: (seller, document_number), (tax_id, date, total, pos),
-    image hash."""
+    (seller, date, total, lines) content key, image hash."""
     seen = seen or {}
     keys = dup_keys(doc)
     if (keys["doc_key"] is not None
@@ -230,10 +268,27 @@ def r10_duplicates(doc, seen=None):
     if (keys["fuzzy_key"] is not None
             and keys["fuzzy_key"] in seen.get("fuzzy_keys", set())):
         return False, f"duplicate (tax_id, date, total, pos)={keys['fuzzy_key']}"
+    if (keys["content_key"] is not None
+            and keys["content_key"] in seen.get("content_keys", set())):
+        return False, (f"duplicate (seller, date, total, "
+                       f"lines)={keys['content_key']}")
     if (keys["image_hash"] is not None
             and keys["image_hash"] in seen.get("image_hashes", set())):
         return False, "duplicate image hash"
     return True, "no duplicate keys"
+
+
+def _luhn_valid(digits):
+    """True when the digit run passes the Luhn checksum (PAN-shaped)."""
+    total = 0
+    for i, ch in enumerate(reversed(digits)):
+        n = ord(ch) - 48
+        if i % 2:
+            n *= 2
+            if n > 9:
+                n -= 9
+        total += n
+    return total % 10 == 0
 
 
 def r11_suspicious(doc):
@@ -248,13 +303,28 @@ def r11_suspicious(doc):
         return False, f"placeholder email {email!r}"
     branch = (doc.get("issuer") or {}).get("branch_code")
     # 5-digit codes are the Revenue Dept norm, but CP Axtra/Lotus's slips
-    # print 4-digit store codes (S2 "1681", S7 "6662" live): accept 4-5.
-    if branch and not re.fullmatch(r"\d{4,5}", branch):
-        return False, f"branch_code {branch!r} not 4-5 digits"
+    # print 4-digit store codes (S2 "1681", S7 "6662" live) and S&P a
+    # 3-digit one (สาขาที่ 291, S30 live): accept 3-5.
+    if branch and not re.fullmatch(r"\d{3,5}", branch):
+        return False, f"branch_code {branch!r} not 3-5 digits"
+    # 02 sec 7: unmasked PANs surface as payment references (and a
+    # slip that prints one may land it in card_mask verbatim), so the
+    # payment fields join the address/discarded-text blob. Masked
+    # shapes (XXXX runs) never match the digit-run regex; long
+    # non-card refs (PromptPay API ids) fail the Luhn gate below.
+    pay_bits = []
+    for pay in doc.get("payments") or []:
+        pay_bits += [pay.get("card_mask") or "",
+                     pay.get("method_raw") or "",
+                     pay.get("external_ref") or ""]
     blob = " ".join([(doc.get("issuer") or {}).get("address") or ""]
-                    + (doc.get("discarded_text") or []))
-    if CARD_UNMASKED_RE.search(blob):
-        return False, "possible unmasked card number in text"
+                    + (doc.get("discarded_text") or []) + pay_bits)
+    for match in CARD_UNMASKED_RE.finditer(blob):
+        # NP/loyalty/STID runs are card-shaped but never Luhn-valid
+        # (S15); only a Luhn-passing run is card-like enough to flag.
+        if _luhn_valid(match.group(0)):
+            return False, ("possible unmasked card number in text: "
+                           f"{match.group(0)!r}")
     return True, "no suspicious signals"
 
 

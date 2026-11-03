@@ -13,6 +13,7 @@ import unittest
 from contextlib import redirect_stdout
 from unittest import mock
 
+from ptl.adapters.tesseract import TesseractExtractor
 from ptl.api.cli import cmd_baseline
 from ptl.eval import run_baseline
 
@@ -44,6 +45,33 @@ class TestRunBaseline(unittest.TestCase):
         self.assertEqual(summary["preds"], 2)
         self.assertEqual(summary["missing"], [])
         self.assertEqual(summary["errors"], {})
+
+    def test_summary_reports_latency(self):
+        # 05 sec 8 item 6 (latency half): per-image seconds plus
+        # totals, so batch cost in time is measured, not guessed.
+        with tempfile.TemporaryDirectory() as tmp:
+            d = _images(tmp, "S1.jpg", "S2.jpg")
+            systems = {"a": lambda p, **kw: {"doc": 1}}
+            with mock.patch.object(run_baseline, "SYSTEMS", systems):
+                _, summary = run_baseline.run_baseline("a", d)
+        self.assertEqual(sorted(summary["seconds"]), ["S1", "S2"])
+        for v in summary["seconds"].values():
+            self.assertGreaterEqual(v, 0.0)
+        self.assertAlmostEqual(summary["total_seconds"],
+                               sum(summary["seconds"].values()))
+        self.assertAlmostEqual(summary["mean_seconds_per_image"],
+                               summary["total_seconds"] / 2)
+
+    def test_failed_image_still_reports_latency(self):
+        def _boom(p, **kw):
+            raise RuntimeError("bad pixels")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            d = _images(tmp, "S1.jpg")
+            with mock.patch.object(run_baseline, "SYSTEMS", {"a": _boom}):
+                _, summary = run_baseline.run_baseline("a", d)
+        self.assertIn("S1", summary["errors"])
+        self.assertIn("S1", summary["seconds"])
 
     def test_tuple_shape_unwrapped(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -146,6 +174,18 @@ class TestBaselineCli(unittest.TestCase):
                     system="d", images=d, out=out))
             self.assertEqual(rc, 1)
             self.assertFalse(os.path.exists(out))
+
+    def test_ocr_decode_tolerant(self):
+        # Binary bytes on tesseract's stdout (seen: sandboxed run
+        # outside the workspace root) must degrade to a wrong
+        # answer, never a UnicodeDecodeError: decoding uses
+        # errors="replace".
+        with mock.patch("ptl.adapters.tesseract.subprocess.run") as m:
+            m.return_value.stdout = "TOTAL 45.00 �\n"
+            text = TesseractExtractor().ocr("s.jpg")
+        self.assertIn("TOTAL 45.00", text)
+        self.assertEqual(m.call_args.kwargs["errors"], "replace")
+        self.assertTrue(m.call_args.kwargs["text"])
 
 
 if __name__ == "__main__":

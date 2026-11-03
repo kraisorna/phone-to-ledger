@@ -36,7 +36,16 @@ def response_usage(body):
 
 def new_stats():
     """Return a zeroed per-extractor usage accumulator."""
-    return {"calls": 0, "input_tokens": 0, "output_tokens": 0, "seconds": 0.0}
+    return {"calls": 0, "input_tokens": 0, "output_tokens": 0,
+            "reasoning_tokens": 0, "seconds": 0.0}
+
+
+def _reasoning_of(body):
+    use = body.get("usage") if isinstance(body, dict) else None
+    det = use.get("output_tokens_details") if isinstance(use, dict) else None
+    if not isinstance(det, dict):
+        return 0
+    return _num(det.get("reasoning_tokens"))
 
 
 def record_call(stats, body, seconds):
@@ -45,6 +54,7 @@ def record_call(stats, body, seconds):
     stats["calls"] += 1
     stats["input_tokens"] += used_in
     stats["output_tokens"] += used_out
+    stats["reasoning_tokens"] += _reasoning_of(body)
     stats["seconds"] += seconds
 
 

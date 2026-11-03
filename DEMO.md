@@ -36,7 +36,7 @@ diff <(cut -d, -f1-14,16 demo/ledger.csv) <(cut -d, -f1-14,16 demo/expected.csv)
 Fixture-backed beats (instant, offline-safe) if the live call stalls:
 
 ```sh
-PYTHONPATH=src:. python3 -m unittest discover -s tests 2>&1 | tail -3   # 300 green
+PYTHONPATH=src:. python3 -m unittest discover -s tests 2>&1 | tail -3   # 438 green
 ptl validate --doc demo/s1.json        # S1 fixture dump, all rules pass
 ptl export --doc demo/s1.json          # prints the ledger CSV row to stdout
 ```
@@ -50,7 +50,9 @@ failing → `needs_review`, never silently accepted:
 
 ```sh
 ptl validate --doc demo/bad_sum.json; echo "exit=$?"   # exit=2, R1 hard-fails
-ptl review --queue demo/review/ --pending
+ptl review --queue demo/review/ --pending   # lists bad_sum: needs_review + R1 reason
+# Optional visual for the same beat (open the file in a browser):
+ptl review --queue demo/review/ --show bad_sum --html /tmp/trust.html --image $PWD/demo/sample.jpg
 ```
 
 (`demo/bad_sum.json` is S1 with the first line_total +100 satang.)
@@ -58,7 +60,9 @@ ptl review --queue demo/review/ --pending
 ### 2:15–3:00 — Close
 Recap the path (segment → extract → validate → export), who it serves
 (Thai shops/bookkeepers drowning in paper), and what's next (faded
-thermal, full-form invoices, Glimmer offline). End on the CSV.
+thermal, full-form invoices, Glimmer dates parity — offline
+extraction completes all 25 gold docs, 4/25 fully correct with
+perfect grand totals). End on the CSV.
 
 ## Fallback (no network / API down)
 
@@ -66,12 +70,22 @@ The 1:30–3:00 beats run fully offline (validate/export/review/tests use
 no API). For the 0:30–1:30 live extraction, play the recorded run:
 `demo/recorded_run.txt` holds one good live capture (exit=0,
 auto_accept, 45.00 row). Screenshot `demo/expected.csv` for the close.
-Live extraction varies run to run (2/3 green so far: one rerun came
-back with control-char keys and dropped payments → blocked:R1), so
-lead with the recording and keep live as the backup, not the opener.
-Update: NUL-suffixed keys now auto-recover in `normalize_keys`
-(replay-verified: that blocked run validates clean); fully-dropped
-fields remain unrecoverable variance.
+Live extraction varies run to run (demo smokes 131/146 green since
+the Oct-31 junk-keys flake; misses were server-timeout events,
+one dropped-VAT run (now flags R4 instead of shipping an empty cell),
+three wholesale field drops (all correctly blocked, green on retry;
+the second also spewed ~20K output tokens/call, now capped at 8K),
+one empty-response pair (both attempts `{}`, structurally excluded,
+exit 3, SAM-only ฿0.08),
+and one low-confidence flag that exposed the triage/CSV gap (fixed:
+triage now drives status on all surfaces, flagged docs land in the
+review queue with `e2e --review-queue`)), so if a live call stalls
+or flags on camera, cut to the recording. Defenses in place:
+unknown-key allowlist strip, structure-error re-roll,
+validation-guided retry (best of 2, clean reads cost 1),
+R4 vatable-without-vat hard-fail, 8K output cap (flake
+spend guard), stdlib EXIF strip (phone
+GPS never reaches the API).
 
 ## TODO (demo-critical)
 

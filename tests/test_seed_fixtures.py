@@ -4,6 +4,7 @@ Each test pins a documented finding from 02-ocr-edge-cases.md to the
 pipeline stage that must handle it (rules R1-R12, triage, scorer,
 eval runner). Also smoke-tests eval/run_eval.py end to end.
 """
+import csv
 import json
 import os
 import tempfile
@@ -11,6 +12,7 @@ import unittest
 
 from ptl.eval.run_eval import run_eval
 from ptl.eval.score import score_doc
+from ptl.pipeline.export import COLUMNS, to_csv, to_row
 from ptl.pipeline.extract import normalise_pos_identifier
 from ptl.pipeline.triage import triage
 from ptl.pipeline.validate_rules import validate
@@ -176,15 +178,15 @@ class TestSeedScoring(unittest.TestCase):
             with open(faded_p, "w", encoding="utf-8") as f:
                 f.write("S5\n")
             report = run_eval(preds_p, labels_d, faded_p)
-            self.assertEqual(report["overall"]["n"], 22)
-            self.assertEqual(report["overall"]["doc_all_correct"], 22)
-            # S2, S7-S9, S11 and S15-S17 have no VAT line:
-            # totals.vat_amount scores over 14 docs.
+            self.assertEqual(report["overall"]["n"], 25)
+            self.assertEqual(report["overall"]["doc_all_correct"], 25)
+            # S2, S7-S9, S11, S15-S17 and S25 have no VAT line:
+            # totals.vat_amount scores over 16 docs.
             overall = report["overall"]
-            self.assertEqual(overall["per_field_n"]["totals.vat_amount"], 14)
-            self.assertEqual(overall["per_field_counts"]["totals.vat_amount"], 14)
+            self.assertEqual(overall["per_field_n"]["totals.vat_amount"], 16)
+            self.assertEqual(overall["per_field_counts"]["totals.vat_amount"], 16)
             self.assertEqual(overall["per_field_n"]["totals.grand_total"],
-                             22)
+                             25)
             self.assertEqual(report["missing_preds"], [])
             self.assertEqual(report["faded"]["n"], 1)
             self.assertEqual(report["faded"]["doc_all_correct"], 1)
@@ -193,9 +195,9 @@ class TestSeedScoring(unittest.TestCase):
             with open(preds_p, "w", encoding="utf-8") as f:
                 json.dump(preds, f)
             report = run_eval(preds_p, labels_d, faded_p)
-            self.assertEqual(report["overall"]["doc_all_correct"], 21)
+            self.assertEqual(report["overall"]["doc_all_correct"], 24)
             counts = report["overall"]["per_field_counts"]
-            self.assertEqual(counts["totals.grand_total"], 21)
+            self.assertEqual(counts["totals.grand_total"], 24)
 
 
 class TestS22SevenSecondSlip(unittest.TestCase):
@@ -742,15 +744,28 @@ class TestS15Tops(unittest.TestCase):
         self.assertTrue(v["rules"]["R1"]["pass"])
         self.assertTrue(v["rules"]["R5"]["pass"])
 
-    def test_digit_runs_route_to_review(self):
-        # NP/STID/barcode digit runs look card-shaped to R11's
-        # conservative scan: soft flag, human clears, like S3.
+    def test_nonluhn_digit_runs_pass_r11(self):
+        # NP/STID/barcode runs are card-shaped but Luhn-invalid, so
+        # R11's gate lets them through: S15 auto-accepts instead of
+        # burning a human review on a false positive.
         doc = fresh_seed("S15")
         self.assertIn("NP_3724765260701", doc["discarded_text"])
         v = validate(doc)
+        self.assertEqual(failed_rules(v), [])
+        self.assertTrue(v["rules"]["R11"]["pass"])
+        self.assertEqual(triage(doc, v)["decision"], "auto_accept")
+
+    def test_luhn_valid_run_still_trips_r11(self):
+        # Positive control: a Luhn-passing 16-digit run in
+        # discarded text is card-like enough to flag for review.
+        doc = fresh_seed("S15")
+        doc["discarded_text"] = list(doc["discarded_text"]) + [
+            "4111111111111111"]
+        v = validate(doc)
         self.assertEqual(failed_rules(v), ["R11"])
         self.assertEqual(v["hard_failed"], [])
-        self.assertIn("card", v["rules"]["R11"]["detail"])
+        self.assertIn("4111111111111111",
+                      v["rules"]["R11"]["detail"])
         self.assertEqual(triage(doc, v)["decision"], "needs_review")
 
     def test_coupon_section_is_all_traps(self):
@@ -963,6 +978,182 @@ class TestS19WatsonsRatchada(unittest.TestCase):
         # SKU2 differs from S13's 309086: the 4th glyph reads C.
         self.assertEqual(doc["line_items"][1]["description_raw"],
                          "309C76 #HadabireiPr@")
+
+
+class TestS20MrDiy(unittest.TestCase):
+    def test_anchorless_date_routes_to_review(self):
+        # 03-10-26 has no full-date anchor (TRC/BATCH/R-counter
+        # are dateless), so like S23 the era stays ambiguous and
+        # issue_date None: soft R7+R13, human resolves, no guess.
+        doc = fresh_seed("S20")
+        self.assertIsNone(doc["dates"]["issue_date"])
+        self.assertEqual(doc["dates"]["raw_date_string"],
+                         "03-10-26 11:31")
+        v = validate(doc)
+        self.assertEqual(failed_rules(v), ["R13", "R7"])
+        self.assertEqual(v["hard_failed"], [])
+        self.assertEqual(v["rules"]["R7"]["detail"],
+                         "ambiguous era without anchor")
+        self.assertEqual(triage(doc, v)["decision"], "needs_review")
+
+    def test_printed_vat_pins_formula_fourth_time(self):
+        # 18.25 = round(27900*7/107): fourth printed-VAT pin after
+        # S13/S23/S18. Vatable row is not printed (None); R4 skips.
+        doc = fresh_seed("S20")
+        self.assertEqual(doc["totals"]["vat_amount"], 1825)
+        self.assertEqual(doc["totals"]["vat_amount_computed"], 1825)
+        self.assertEqual(round(27900 * 7 / 107), 1825)
+        self.assertIsNone(doc["totals"]["vatable_amount"])
+        v = validate(doc)
+        self.assertTrue(v["rules"]["R3"]["pass"])
+        self.assertTrue(v["rules"]["R1"]["pass"])
+        self.assertTrue(v["rules"]["R6"]["pass"])
+
+    def test_traps_verbatim_oddity_and_pii_omitted(self):
+        # Model line joins the name, barcode stays raw-only; the
+        # "CO,.LTD." comma is verbatim; masked PAN + trace refs +
+        # policy lines are traps; operator login omitted as PII.
+        doc = fresh_seed("S20")
+        self.assertEqual(
+            doc["line_items"][0]["description"],
+            "BLL PLUG B75 5SWITCH 5SOCKET 5M LA17-14A - 1/20")
+        self.assertIn("8859375108789",
+                      doc["line_items"][0]["description_raw"])
+        self.assertEqual(doc["issuer"]["legal_name"],
+                         "MR. D.I.Y. (BANGKOK) CO,.LTD.")
+        self.assertEqual(doc["pos_identifier"], "E020110003A1206")
+        self.assertEqual(doc["payments"][0]["external_ref"],
+                         "068830|QR")
+        for trap in ("Item(s) : 1", "Qty(s) : 1",
+                     "APPROVAL CODE:747474",
+                     "****************7474 (PROMPTPAY)",
+                     "TRC NUM:068830|QR", "BATCH NO:407",
+                     "HOST NUM:", "SH01", "B002", "T2",
+                     "STRICTLY NO CASH REFUND."):
+            self.assertIn(trap, doc["discarded_text"])
+        blob = json.dumps(doc, ensure_ascii=False)
+        self.assertNotIn("JARUW2", blob)
+        v = validate(doc)
+        self.assertTrue(v["rules"]["R11"]["pass"])
+
+
+class TestS24Snowtee(unittest.TestCase):
+    def test_unknown_form_alone_routes_to_review(self):
+        # No company line, tax ID or ABB mark: form unknown is the
+        # only failure (S17 pattern); money, date and R11 all pass.
+        doc = fresh_seed("S24")
+        self.assertEqual(doc["form"], "unknown")
+        self.assertIsNone(doc["issuer"]["tax_id"])
+        self.assertIsNone(doc["issuer"]["vat_registered"])
+        v = validate(doc)
+        self.assertEqual(failed_rules(v), ["R14"])
+        self.assertEqual(v["hard_failed"], [])
+        self.assertEqual(triage(doc, v)["decision"], "needs_review")
+
+    def test_printed_vat_pins_formula_fifth_time(self):
+        # 2.29 = round(3500*7/107): fifth printed-VAT pin after
+        # S13/S23/S18/S20, and 32.71 + 2.29 reconciles exactly.
+        doc = fresh_seed("S24")
+        self.assertEqual(doc["totals"]["vat_amount"], 229)
+        self.assertEqual(doc["totals"]["vat_amount_computed"], 229)
+        self.assertEqual(round(3500 * 7 / 107), 229)
+        self.assertEqual(doc["totals"]["vatable_amount"], 3271)
+        v = validate(doc)
+        self.assertTrue(v["rules"]["R1"]["pass"])
+        self.assertTrue(v["rules"]["R3"]["pass"])
+        self.assertTrue(v["rules"]["R4"]["pass"])
+
+    def test_negative_zero_discount_and_traps(self):
+        # Discount prints "-0.0" (negative zero -> 0); the order
+        # counter, pickup/dining rows and payable restatement are
+        # traps; lowercase "promptpay" maps to qr_promptpay.
+        doc = fresh_seed("S24")
+        self.assertEqual(doc["totals"]["discount_total"], 0)
+        self.assertEqual(doc["payments"],
+                         [{"amount": 3500, "method": "qr_promptpay",
+                           "method_raw": "promptpay"}])
+        self.assertEqual(doc["line_items"][0]["description"],
+                         "ชาองุ่นโบโบ้(Grape Bobo Tea)")
+        self.assertEqual(doc["dates"]["issue_date"], "2026-10-31")
+        for trap in ("207", "เวลารับอาหาร: รับอาหารเลย",
+                     "จำนวนส่วนลด(Discount amount) -0.0",
+                     "จำนวนเงินที่ต้องชำระ(Amount payable) 35.0",
+                     "วิธีการทานอาหาร(Dining method) ทานในร้าน",
+                     "ยินดีต้อนรับกลับมาอีกครั้ง"):
+            self.assertIn(trap, doc["discarded_text"])
+        v = validate(doc)
+        self.assertTrue(v["rules"]["R5"]["pass"])
+        self.assertTrue(v["rules"]["R11"]["pass"])
+
+
+class TestS25ZaabOnly(unittest.TestCase):
+    def test_sister_format_distinct_shop_sign(self):
+        # Same address/phone and staff-row branch as S17, but a
+        # distinct sign (แซ่บโอนลี่ by สำเนียงตำซั่ว, not แซ่บโอเล่
+        # by เชฟแม่ยงตำซ่า): same unknown-form R14, needs_review.
+        doc = fresh_seed("S25")
+        self.assertEqual(doc["document_type"], "invoice")
+        self.assertEqual(doc["issuer"]["legal_name"],
+                         "แซ่บโอนลี่ by สำเนียงตำซั่ว")
+        self.assertEqual(doc["issuer"]["branch_name"], "ห้วยขวาง")
+        self.assertEqual(doc["issuer"]["phone"], "0819203944")
+        v = validate(doc)
+        self.assertEqual(failed_rules(v), ["R14"])
+        self.assertEqual(triage(doc, v)["decision"], "needs_review")
+
+    def test_lines_verbatim_and_coke_differs_from_s17(self):
+        # The four lines sum exactly to 180.00; the Coke line
+        # prints with a space and trailing period here, kept
+        # verbatim against S17's tighter "โค้ก(ขวดเล็ก)375ML".
+        lines = fresh_seed("S25")["line_items"]
+        self.assertEqual(
+            [li["description"] for li in lines],
+            ["ปีกไก่ทอดชุดเล็ก (4ชิ้น)", "ลาบหมู", "ข้าวเหนียว",
+             "โค้ก (ขวดเล็ก)375ML."])
+        self.assertNotEqual(
+            lines[3]["description"],
+            fresh_seed("S17")["line_items"][3]["description"])
+        v = validate(fresh_seed("S25"))
+        self.assertTrue(v["rules"]["R1"]["pass"])
+        self.assertTrue(v["rules"]["R5"]["pass"])
+
+    def test_counter_rows_are_traps(self):
+        doc = fresh_seed("S25")
+        for trap in ("Table: 11", "Guests: 1", "Items: 4"):
+            self.assertIn(trap, doc["discarded_text"])
+        self.assertEqual(doc["dates"]["issue_date"], "2026-10-31")
+        self.assertEqual(doc["status"], "unpaid")
+
+
+class TestSeedExportMatrix(unittest.TestCase):
+    def test_all_seeds_export_with_pinned_mix(self):
+        # Platform headline numbers: every seed validates, triages
+        # and exports without exception; 14 auto-accept, 11 review,
+        # the only hard block is S12's genuine R6 misprint, and the
+        # ledger holds 25 rows x 16 columns summing to 3267.50 THB.
+        review = set()
+        hard = {}
+        rows = []
+        for name in sorted(SEEDS):
+            doc = fresh_seed(name)
+            v = validate(doc)
+            decision = triage(doc, v)["decision"]
+            if decision == "needs_review":
+                review.add(name)
+            if v["hard_failed"]:
+                hard[name] = v["hard_failed"]
+            rows.append(to_row(doc, review_status=decision))
+        self.assertEqual(review, {"S3", "S4", "S8", "S11", "S12",
+                                 "S17", "S20", "S21", "S23", "S24",
+                                 "S25"})
+        self.assertEqual(hard, {"S12": ["R6"]})
+        self.assertEqual(len(rows), 25)
+        body = list(csv.reader(to_csv(rows).splitlines()))
+        self.assertEqual(len(body), 26)
+        self.assertEqual(body[0], COLUMNS)
+        gi = body[0].index("grand_total")
+        grand = sum(int(float(r[gi]) * 100) for r in body[1:])
+        self.assertEqual(grand, 326750)
 
 
 if __name__ == "__main__":

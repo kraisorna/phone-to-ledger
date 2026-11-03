@@ -21,8 +21,12 @@ class TesseractExtractor(Extractor):
         self.lang = lang
 
     def ocr(self, image_path):
+        # errors="replace": a tesseract build that leaks binary bytes
+        # to stdout (seen: sandboxed run outside the workspace root)
+        # must degrade to a wrong answer, never a UnicodeDecodeError.
         out = subprocess.run(["tesseract", image_path, "stdout", "-l", self.lang],
-                             capture_output=True, text=True, check=True)
+                             capture_output=True, text=True, check=True,
+                             errors="replace")
         return out.stdout
 
     def parse(self, text):

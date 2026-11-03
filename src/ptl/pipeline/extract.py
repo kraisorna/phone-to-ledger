@@ -9,6 +9,8 @@ prompt rules and post-processing shared by every extractor:
 """
 import re
 
+from ..schema import load_schema
+
 # 02 §9's prose says "E + 12" but its own four examples are E + 14, as
 # are all seven observed stamps (S1/S2/S4/S5/S6/S9/S22). Match the full
 # run from a token start: clipping a stamp corrupts R10 fuzzy dedup
@@ -23,15 +25,18 @@ POS_SPACED_RE = re.compile(r"(?<![0-9A-Za-z])E[ ]+[0-9A-Za-z]{2}"
                            r"[ ]+[0-9A-Za-z]{5}(?![0-9A-Za-z])")
 LINE_FLAG_RE = re.compile(r"\s*([VNE])\s*$")
 QTY_EMBEDDED_RE = re.compile(r"[xX×]\s*(\d+(?:\.\d+)?)\s*$")
+LEADING_CODE_RE = re.compile(r"^\d{6}\s+")
+TRAILING_BARCODE_RE = re.compile(r"\s+\d{13}$")
 
 EXTRACTION_PROMPT_RULES = """\
 You extract a Thai tax document into schema v1.0 JSON.
 - Never take the first date: loyalty expiries and printed-at timestamps are not the doc date.
 - 2-digit BE years need a tax-invoice anchor; otherwise era=ambiguous and flag review.
 - Anchor rule for 2-digit years: only a full YYYYMMDD stamp (TID#20260828...) or an explicit era marker counts; a YYMMDD fragment inside an invoice or reference number (260828-01-07563) never resolves the year - stay ambiguous and flag review.
-- branch_code is the store number printed with the merchant address, parenthesized (1681) or leading (14098 Siam Future Esplanade): transcribe it even when unlabeled, never leave it null when printed.
+- branch_code is the store number printed with the merchant address, parenthesized (1681) or leading (14098 Siam Future Esplanade): transcribe it even when unlabeled, never leave it null when printed. A footer outlet label is the same thing: transcribe a Restaurant ID / Store ID / Outlet number as branch_code when no branch-labeled number prints (S9's Restaurant ID 71498).
 - when two branch-like numbers appear, branch_code is the one printed with the issuer legal name / merchant address (S1's 00031), not a shop or counter code printed with the brand line (Cafe Amazon's 2083).
-- document_number copies a labelled number exactly, keeping attached prefixes (R#0000677955P3, JS001/ESP014867); drop only a detached 'Label:' prefix (No.: 0196768 -> 0196768); with no labelled number use null, never assemble one from store/terminal/sequence stamps.
+- issuer.legal_name is the registered company name alone: strip a trailing branch tail (S1's สาขาที่ 00031) but keep digits belonging to the name (พ.ศ.2515, 2022); never append the brand or store name (S5's CP ALL, not 'CP ALL, 7-Eleven').
+- document_number copies a labelled number exactly, keeping attached prefixes (R#0000677955P3, JS001/ESP014867); drop only a detached 'Label:' prefix (No.: 0196768 -> 0196768); with no labelled number use null, never assemble one from store/terminal/sequence stamps. Exception: a bare '#' followed by 15+ digits with no label is the receipt number: strip the '#' and copy the digits (#604002090920260005 -> 604002090920260005); short #-counters (#0007) and letter-codes (C00C5) are never document numbers. An R-prefixed digit run trailing the footer date/time/shop-code line is the receipt number even unlabeled (R000500494).
 - Totals-only rows are not line items; category subtotals are excluded from line sums.
 - discount_total is only a deduction that lowers the total (subtotal - discount = total); a 'discount' printed among payment/tender rows that leaves the printed total unchanged (QR 35.00 + AIS 10.00 tender against a 45.00 total) is tender, not discount_total: emit 0.
 - 0.00 modifiers attach to their parent line even when priced.
@@ -50,8 +55,10 @@ Rules: money as INTEGER satang (45.00 THB = 4500); issue_date as
 YYYY-MM-DD only, never with a time suffix, plus the verbatim raw string;
 a 2-digit year without a corroborating anchor on the slip stays null
 with detected_era "ambiguous" (never guess); totals only from
-total-labelled rows, tender rows go in payments; category subtotals are
-not line items; modifiers attach to parents via parent_line_number;
+total-labelled rows, tender rows go in payments; transcribe category
+subtotal rows as line items flagged is_category_subtotal, never
+including them in line sums; modifiers attach to parents via
+parent_line_number;
 trailing V/N/E is vat_flag; classify form full|abbreviated|unknown.
 Ignore printed VATable/VAT figures: always recompute vat_amount =
 round(grand_total*7/107) and vatable_amount = grand_total - vat_amount
@@ -82,6 +89,37 @@ def normalise_pos_identifier(text):
     return m.group(0).replace(" ", "") if m else None
 
 
+_R_HASH_RE = re.compile(r"^R#([0-9A-Za-z]{10})P(\d)$")
+_R_HASH_BARE_RE = re.compile(r"^(\d{10})P(\d)$")
+# 7-Eleven's receipt font confuses these inside the digit run (S22's
+# 6 read as G); the run is digits-only in all three gold R#s, so only
+# high-confidence pairs map. Anything else passes through untouched.
+_R_HASH_FIXES = {"G": "6", "O": "0", "I": "1", "g": "6", "o": "0",
+                 "i": "1", "l": "1"}
+
+
+def normalise_r_hash_receipt_number(value):
+    """Repair 7-Eleven R#-receipt-number misreads.
+
+    Gold R#0000677955P3 / R#0000230350P1 / R#0000240606P1 share
+    R# + 10 digits + P + digit: letters inside the run (S22 C's G)
+    are always misreads and map to their digit, and the bare shape
+    regains a dropped R# prefix (S5 D's 0000677955P3). Every other
+    shape — letter-bearing formats, short runs, null — passes
+    through byte-identical.
+    """
+    if not isinstance(value, str):
+        return value
+    m = _R_HASH_RE.match(value)
+    if m:
+        fixed = "".join(_R_HASH_FIXES.get(ch, ch) for ch in m.group(1))
+        return f"R#{fixed}P{m.group(2)}"
+    m = _R_HASH_BARE_RE.match(value)
+    if m:
+        return f"R#{m.group(1)}P{m.group(2)}"
+    return value
+
+
 def normalise_payment_method(method_raw, fallback=None):
     """Map printed tender text to the controlled method vocabulary.
 
@@ -93,7 +131,10 @@ def normalise_payment_method(method_raw, fallback=None):
     text = (method_raw or "").lower()
     if "bank" in text and "qr" in text:
         return "bank_qr"
-    if "qr" in text or "promptpay" in text or "promptp" in text:
+    if "bank" in text and "transfer" in text:
+        return "bank_transfer"
+    if ("qr" in text or "qpcb" in text or "promptpay" in text
+            or "promptp" in text):
         return "qr_promptpay"
     if ("mastercard" in text or "visa" in text
             or re.search(r"\bmc\b", text)):
@@ -102,7 +143,11 @@ def normalise_payment_method(method_raw, fallback=None):
         return "truemoney_wallet"
     if "mobile payment" in text:
         return "mobile_payment"
+    if "shopee" in text:
+        return "shopeefood"
     if "stored" in text and "value" in text:
+        return "stored_value_redeem"
+    if "redeem" in text and ("sbux" in text or "starbucks" in text):
         return "stored_value_redeem"
     if "ส่วนลด" in text or "discount" in text:
         return "voucher_discount"
@@ -166,14 +211,37 @@ def _strip_embedded_qty(line):
     return out
 
 
+def _strip_printed_codes(line):
+    """Drop glued product codes and barcodes; never mutates the input.
+
+    Watsons prefixes a 6-digit product code (S13/S19) and MR.DIY
+    suffixes the EAN-13 barcode (S20); gold keeps the bare name, so
+    both go (verbatim text stays in description_raw). A strip that
+    would empty the description is skipped: a bare code is data, not
+    a name with a code.
+    """
+    desc = line.get("description") or ""
+    clean = TRAILING_BARCODE_RE.sub("", LEADING_CODE_RE.sub("", desc))
+    if clean == desc or not clean.strip():
+        return line
+    out = dict(line)
+    out.setdefault("description_raw", desc)
+    out["description"] = clean
+    return out
+
+
 def _default_quantity(line):
     """Fill a missing quantity with 1 ('assumed'); copies, never mutates.
 
     A line with a total but no quantity is a unit sale unless the name
     says otherwise (handled by _strip_embedded_qty first). An explicit
     quantity — even 0 — is always kept: defaults must not mask conflict.
+    Subtotal and header rows carry no quantity (gold: null), so the
+    default skips them.
     """
     if line.get("quantity") is not None:
+        return line
+    if line.get("is_category_subtotal") or line.get("is_section_header"):
         return line
     out = dict(line)
     out["quantity"] = 1
@@ -211,6 +279,98 @@ def _infer_subtotal(lines, totals):
             + (totals.get("rounding_adjustment") or 0))
 
 
+_THAI_DIGIT_TABLE = str.maketrans(
+    {chr(0x0E50 + i): str(i) for i in range(10)})
+
+
+def thai_digits_to_ascii(text):
+    """Fold Thai digits (U+0E50-0E59) to ASCII; else pass through."""
+    if not isinstance(text, str) or not text:
+        return text
+    return text.translate(_THAI_DIGIT_TABLE)
+
+
+def _canonicalise_machine_digits(doc):
+    """Fold Thai digits to ASCII in machine-identity fields.
+
+    Thai-digit transcriptions are valid Unicode decimals (R6's
+    checksum already accepts them) but split R10 keys across photos
+    of one slip and leak non-ASCII digits into the ledger, so the
+    machine fields are canonicalised while verbatim prose (names,
+    descriptions) is never touched. Copies nested dicts, never
+    mutates the input.
+    """
+    issuer = doc.get("issuer")
+    if isinstance(issuer, dict):
+        issuer = dict(issuer)
+        for key in ("tax_id", "branch_code"):
+            if issuer.get(key) is not None:
+                issuer[key] = thai_digits_to_ascii(issuer[key])
+        doc["issuer"] = issuer
+    dates = doc.get("dates")
+    if isinstance(dates, dict):
+        dates = dict(dates)
+        for key in ("issue_date", "raw_date_string"):
+            if dates.get(key) is not None:
+                dates[key] = thai_digits_to_ascii(dates[key])
+        doc["dates"] = dates
+    if doc.get("document_number") is not None:
+        doc["document_number"] = thai_digits_to_ascii(
+            doc["document_number"])
+    return doc
+
+
+def _null_blank_machine_strings(doc):
+    """Fold blank machine-identity strings to None.
+
+    Weak extractors emit "" for absent tax IDs, branch codes,
+    document numbers and dates (Glimmer D: S24 tax, S2/S25
+    docno) while the schema uses null; blanks can never match
+    a real gold value, so the fold only ever fixes misses.
+    Verbatim prose (legal_name, descriptions) is never touched.
+    Copies nested dicts, never mutates the input.
+    """
+    issuer = doc.get("issuer")
+    if isinstance(issuer, dict):
+        issuer = dict(issuer)
+        for key in ("tax_id", "branch_code"):
+            value = issuer.get(key)
+            if isinstance(value, str) and not value.strip():
+                issuer[key] = None
+        doc["issuer"] = issuer
+    dates = doc.get("dates")
+    if isinstance(dates, dict):
+        dates = dict(dates)
+        for key, value in dates.items():
+            if isinstance(value, str) and not value.strip():
+                dates[key] = None
+        doc["dates"] = dates
+    if (isinstance(doc.get("document_number"), str)
+            and not doc["document_number"].strip()):
+        doc["document_number"] = None
+    return doc
+
+
+def _infer_total(lines):
+    """Gross charge-line sum when the extractor omitted `total`.
+
+    `total` is the pre-deduction ยอดรวม row (net is subtotal), so
+    unlike _infer_subtotal this sums charge lines with no discount
+    or rounding adjustment. Same completeness bar: None unless
+    every charge line carries a numeric total.
+    """
+    charge = [li for li in (lines or [])
+              if isinstance(li, dict) and not li.get("is_section_header")
+              and not li.get("is_category_subtotal")]
+    if not charge:
+        return None
+    amounts = [li.get("line_total") for li in charge]
+    if any(isinstance(a, bool) or not isinstance(a, (int, float))
+           for a in amounts):
+        return None
+    return sum(amounts)
+
+
 def _infer_vatable(totals):
     """Vatable from grand-vat-nonvat when the extractor omitted it.
 
@@ -236,13 +396,26 @@ def build_document(skeleton):
     defaults a missing line quantity to 1 ('assumed'), and falls back
     issuer.legal_name to brand_name when the extractor only caught the
     trade name (else the ledger seller cell is blank). A missing
-    subtotal is computed from charge lines via R1's equation and a
-    missing vatable from grand-vat-nonvat via R4's (weak extractors
-    omit printed rows); explicit values, even disagreeing ones, are
-    never touched.
-    Input line/issuer dicts are copied, never mutated.
+    subtotal is computed from charge lines via R1's equation, a
+    missing total as the gross charge-line sum, and a missing
+    vatable from grand-vat-nonvat via R4's (weak extractors omit
+    printed rows); explicit values, even disagreeing ones, are
+    never touched. Thai digits in machine-identity fields (tax ID,
+    branch, document number, dates) fold to ASCII so re-photos key
+    identically, and blank machine-identity strings fold to None
+    (the schema's absent marker); verbatim prose is never touched.
+    Unknown top-level keys are dropped against the schema's
+    properties (decoding glitches emit junk keys; every pipeline
+    and adapter write stays inside the schema). Input line/issuer
+    dicts are copied, never mutated.
     """
-    doc = dict(skeleton)
+    allowed = set(load_schema().get("properties", {}))
+    doc = {k: v for k, v in skeleton.items() if k in allowed}
+    doc = _canonicalise_machine_digits(doc)
+    doc = _null_blank_machine_strings(doc)
+    if doc.get("document_number") is not None:
+        doc["document_number"] = normalise_r_hash_receipt_number(
+            doc["document_number"])
     issuer = doc.get("issuer")
     if (isinstance(issuer, dict) and not issuer.get("legal_name")
             and issuer.get("brand_name")):
@@ -269,7 +442,7 @@ def build_document(skeleton):
     lines = doc.get("line_items")
     if lines:
         doc["line_items"] = [
-            _default_quantity(_strip_embedded_qty(li))
+            _default_quantity(_strip_embedded_qty(_strip_printed_codes(li)))
             if isinstance(li, dict) else li for li in lines]
     payments = doc.get("payments")
     if payments:
@@ -280,6 +453,10 @@ def build_document(skeleton):
         inferred = _infer_subtotal(doc.get("line_items"), totals)
         if inferred is not None:
             totals["subtotal"] = inferred
+    if totals.get("total") is None:
+        inferred = _infer_total(doc.get("line_items"))
+        if inferred is not None:
+            totals["total"] = inferred
     if totals.get("vatable_amount") is None:
         inferred = _infer_vatable(totals)
         if inferred is not None:

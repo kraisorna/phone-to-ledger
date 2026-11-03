@@ -41,6 +41,28 @@ class ScriptedExtractor:
 
 
 class TestRetryExtract(unittest.TestCase):
+    def test_malformed_attempt_skipped(self):
+        class _Flaky(ScriptedExtractor):
+            def extract(self, source):
+                self.calls += 1
+                if self.calls == 1:
+                    return {"totals": {"grand_total": "junk"}}, {}
+                return copy.deepcopy(self.docs[0]), {}
+
+        ex = _Flaky([fresh_seed("S1")])
+        doc, conf, validation, decision, used = retry_extract("s1", ex)
+        self.assertEqual(ex.calls, 2)
+        self.assertEqual(used, 2)
+        self.assertEqual(decision["decision"], DECIDE_AUTO)
+        self.assertEqual(doc["totals"]["grand_total"], 4500)
+
+    def test_all_malformed_returns_graceful_review(self):
+        ex = ScriptedExtractor([{"totals": {"grand_total": "junk"}}])
+        doc, conf, validation, decision, used = retry_extract("s1", ex)
+        self.assertEqual(used, 2)
+        self.assertEqual(decision["decision"], DECIDE_REVIEW)
+        self.assertIsInstance(doc, dict)
+
     def test_clean_first_attempt_never_retries(self):
         ex = ScriptedExtractor([fresh_seed("S1")])
         doc, conf, validation, decision, used = retry_extract("s1", ex)

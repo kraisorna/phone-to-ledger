@@ -119,6 +119,7 @@
       "properties": {
         "line_number": {"type": "integer"},
         "description": {"type": "string"},
+        "description_raw": {"type": ["string", "null"], "description": "Verbatim printed line text before quantity/name splitting (02 sec 4)."},
         "line_total": {"type": "integer"},
         "quantity": {"type": ["number", "null"]},
         "quantity_source": {"type": "string", "enum": ["column", "embedded_in_name", "assumed", "unknown"]},

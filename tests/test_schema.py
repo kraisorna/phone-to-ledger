@@ -28,6 +28,54 @@ class TestSchema(unittest.TestCase):
     def test_golden_struct_valid(self):
         self.assertEqual(check_structure(fresh()), [])
 
+    def test_seed_keys_covered_by_schema(self):
+        # Contract parity: every key the 25 gold seeds (and the blank
+        # label humans copy) use must exist in extraction_schema.json
+        # (caught description_raw missing from line_item while seeds,
+        # template, and build all use it).
+        schema = load_schema()
+        known = {
+            "top": set(schema["properties"]) | {"_help"},
+            "line": set(schema["definitions"]["line_item"]
+                         ["properties"]),
+            "pay": set(schema["definitions"]["payment"]["properties"]),
+            "party": set(schema["definitions"]["party"]["properties"]),
+            "totals": set(schema["properties"]["totals"]["properties"]),
+        }
+        regions = {
+            "top": [d for d in SEEDS.values()],
+            "line": [li for d in SEEDS.values()
+                     for li in d.get("line_items") or []],
+            "pay": [p for d in SEEDS.values()
+                    for p in d.get("payments") or []],
+            "party": ([d.get("issuer") or {} for d in SEEDS.values()] +
+                      [d.get("counterparty") or {}
+                       for d in SEEDS.values()]),
+            "totals": [d.get("totals") or {} for d in SEEDS.values()],
+        }
+        with open(TEMPLATE_PATH, encoding="utf-8") as f:
+            template = json.load(f)
+        regions["top"].append(template)
+        regions["line"].extend(template.get("line_items") or [])
+        regions["pay"].extend(template.get("payments") or [])
+        regions["party"].extend([template.get("issuer") or {},
+                                 template.get("counterparty") or {}])
+        regions["totals"].append(template.get("totals") or {})
+        for name, docs in regions.items():
+            with self.subTest(region=name):
+                used = set().union(*(set(d) for d in docs)) if docs else set()
+                self.assertEqual(used - known[name], set())
+
+    def test_unknown_top_level_keys_flagged(self):
+        # Decoding glitches emit junk keys (live 2026-10-31:
+        # `can_claim_input_vat<U+xxxx>`); the extractor re-rolls on
+        # any structure error, so junk must be one.
+        d = dict(fresh(), **{"can_claim_input_vat¡": False,
+                             "receipt_guess": 1})
+        errs = check_structure(d)
+        self.assertTrue(any("can_claim_input_vat¡" in e for e in errs))
+        self.assertTrue(any("receipt_guess" in e for e in errs))
+
     def test_missing_required(self):
         errs = check_structure({"document_type": "receipt"})
         self.assertTrue(any("schema_version" in e for e in errs))

@@ -247,6 +247,102 @@ class TestGlimmerExtract(unittest.TestCase):
         self.assertFalse(doc["can_claim_input_vat"])
         self.assertEqual(conf, {})
 
+    def test_empty_dates_pass_retried_once(self):
+        # 13/14 Glimmer date misses return an empty dates section
+        # (D corpus); a blind second roll beats a guaranteed miss.
+        header = {"issuer": {"tax_id": "0105527027239"},
+                  "totals": {"grand_total": 3200}}
+        lines = {"line_items": []}
+        dates = {"dates": {"issue_date": "2026-08-29",
+                           "raw_date_string": "29/08/2026"}}
+        form = {"form": "abbreviated", "can_claim_input_vat": False}
+        opener = mock.MagicMock(side_effect=[
+            _chat_ok(json.dumps(header))(), _chat_ok(json.dumps(lines))(),
+            _chat_ok(json.dumps({}))(), _chat_ok(json.dumps(dates))(),
+            _chat_ok(json.dumps(form))()])
+        ext = GlimmerExtractor()
+        with tempfile.TemporaryDirectory() as tmp:
+            img = _write(os.path.join(tmp, "r.jpg"), _jpg_bytes(8, 8))
+            with mock.patch("ptl.adapters.glimmer.urllib.request.urlopen",
+                            opener):
+                doc, _ = ext.extract(img)
+        self.assertEqual(opener.call_count, 5)
+        self.assertEqual(doc["dates"]["issue_date"], "2026-08-29")
+
+    def test_found_dates_never_retried(self):
+        # A found date costs one pass; an ambiguous-but-present
+        # section (raw string, null issue) is respected, not rerolled.
+        header = {"issuer": {"tax_id": "0105527027239"},
+                  "totals": {"grand_total": 3200}}
+        lines = {"line_items": []}
+        dates = {"dates": {"issue_date": None,
+                           "raw_date_string": "10/09/69"}}
+        form = {"form": "abbreviated", "can_claim_input_vat": False}
+        opener = mock.MagicMock(side_effect=[
+            _chat_ok(json.dumps(header))(), _chat_ok(json.dumps(lines))(),
+            _chat_ok(json.dumps(dates))(), _chat_ok(json.dumps(form))()])
+        ext = GlimmerExtractor()
+        with tempfile.TemporaryDirectory() as tmp:
+            img = _write(os.path.join(tmp, "r.jpg"), _jpg_bytes(8, 8))
+            with mock.patch("ptl.adapters.glimmer.urllib.request.urlopen",
+                            opener):
+                doc, _ = ext.extract(img)
+        self.assertEqual(opener.call_count, 4)
+        self.assertEqual(doc["dates"]["raw_date_string"], "10/09/69")
+
+    def test_dates_prompt_bans_two_digit_guesses(self):
+        # S23: `30/10/69` was guessed AD 2026 where gold stays
+        # ambiguous-null; the dates pass carries the shared
+        # no-anchor-no-guess rule.
+        self.assertIn("2-digit", DATES_PROMPT)
+        self.assertIn("never guess", DATES_PROMPT)
+
+    def test_malformed_pass_retried_then_merged(self):
+        # S5's lines pass truncates mid-JSON locally; one re-roll
+        # rescues the section when the retry parses.
+        header = {"issuer": {"tax_id": "0105527027239"},
+                  "totals": {"grand_total": 3200}}
+        lines = {"line_items": [{"description": "L", "line_total": 3200}]}
+        dates = {"dates": {"issue_date": "2026-08-29"}}
+        form = {"form": "abbreviated", "can_claim_input_vat": False}
+        opener = mock.MagicMock(side_effect=[
+            _chat_ok(json.dumps(header))(),
+            _chat_ok('{"line_items": [{"description": "L",')(),  # truncated
+            _chat_ok(json.dumps(lines))(),
+            _chat_ok(json.dumps(dates))(), _chat_ok(json.dumps(form))()])
+        ext = GlimmerExtractor()
+        with tempfile.TemporaryDirectory() as tmp:
+            img = _write(os.path.join(tmp, "r.jpg"), _jpg_bytes(8, 8))
+            with mock.patch("ptl.adapters.glimmer.urllib.request.urlopen",
+                            opener):
+                doc, _ = ext.extract(img)
+        self.assertEqual(opener.call_count, 5)
+        self.assertEqual(doc["line_items"][0]["description"], "L")
+        self.assertNotIn("truncated_passes", doc["source"])
+
+    def test_double_truncated_pass_degrades_to_partial(self):
+        # Both lines attempts truncated: the doc still comes back
+        # with the surviving sections, marked, never a crash.
+        header = {"issuer": {"tax_id": "0105527027239"},
+                  "totals": {"grand_total": 3200}}
+        dates = {"dates": {"issue_date": "2026-08-29"}}
+        form = {"form": "abbreviated", "can_claim_input_vat": False}
+        opener = mock.MagicMock(side_effect=[
+            _chat_ok(json.dumps(header))(),
+            _chat_ok('{"line_items": [{"description": "L",')(),
+            _chat_ok('{"line_items": [{"description": "L",')(),
+            _chat_ok(json.dumps(dates))(), _chat_ok(json.dumps(form))()])
+        ext = GlimmerExtractor()
+        with tempfile.TemporaryDirectory() as tmp:
+            img = _write(os.path.join(tmp, "r.jpg"), _jpg_bytes(8, 8))
+            with mock.patch("ptl.adapters.glimmer.urllib.request.urlopen",
+                            opener):
+                doc, _ = ext.extract(img)
+        self.assertEqual(opener.call_count, 5)
+        self.assertEqual(doc["line_items"], [])
+        self.assertEqual(doc["totals"]["grand_total"], 3200)
+        self.assertEqual(doc["source"]["truncated_passes"], ["lines"])
+
     def test_dedicated_passes_own_their_sections(self):
         header = dict(fresh(), line_items=[{"description": "H",
                                              "line_total": 1}],
@@ -275,9 +371,10 @@ class TestGlimmerExtract(unittest.TestCase):
         # recovers it from the merged lines via R1's equation.
         header = {"totals": {"grand_total": 3200}}
         lines = {"line_items": [{"description": "L", "line_total": 3200}]}
+        dates = {"dates": {"issue_date": "2026-08-29"}}
         opener = mock.MagicMock(side_effect=[
             _chat_ok(json.dumps(header))(), _chat_ok(json.dumps(lines))(),
-            _chat_ok(json.dumps({}))(), _chat_ok(json.dumps({}))()])
+            _chat_ok(json.dumps(dates))(), _chat_ok(json.dumps({}))()])
         ext = GlimmerExtractor()
         with tempfile.TemporaryDirectory() as tmp:
             img = _write(os.path.join(tmp, "r.jpg"), _jpg_bytes(8, 8))
@@ -299,6 +396,12 @@ class TestGlimmerExtract(unittest.TestCase):
             json.loads(opener.call_args[0][0].data)["messages"][0]["content"],
             EXTRACTION_PROMPT)
         self.assertEqual(doc["totals"]["grand_total"], 10700)
+
+    def test_lines_prompt_names_subtotal_flag(self):
+        # Prompt said subtotals "are not line items" while gold
+        # transcribes them flagged (S11); the flag is now named.
+        # Live obedience is verified by re-extraction, not this pin.
+        self.assertIn("is_category_subtotal", LINES_PROMPT)
 
     def test_header_prompt_pins_issuer_guidance(self):
         # S1 Glimmer emitted shop code 2083 plus a branch-suffixed

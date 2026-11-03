@@ -9,7 +9,10 @@ DOCUMENT_TYPES = {"invoice", "tax_invoice", "receipt", "combined", "credit_note"
                   "debit_note", "quotation", "delivery_note", "unknown"}
 FORMS = {"full", "abbreviated", "unknown"}
 STATUSES = {"paid", "unpaid", "partially_paid", "issued", "draft"}
-EMAIL_BLOCKLIST = {"noemail", "no-reply", "noreply", "none@", "test@", "-"}
+# 02 sec 10 blocklist (noemail.*, no-reply.*, *@invalid) plus close
+# cousins. Never a bare "-" (matches every hyphenated address).
+EMAIL_BLOCKLIST = {"noemail", "no-reply", "noreply", "none@", "test@",
+                   "invalid"}
 REQUIRED_TOP = ("schema_version", "document_type", "issuer", "totals")
 
 
@@ -18,11 +21,28 @@ def load_schema():
         return json.load(f)
 
 
+_TOP_LEVEL_KEYS = None
+
+
+def _top_level_keys():
+    """Schema's top-level properties, loaded once (junk-key screen)."""
+    global _TOP_LEVEL_KEYS
+    if _TOP_LEVEL_KEYS is None:
+        _TOP_LEVEL_KEYS = frozenset(
+            load_schema().get("properties", {}))
+    return _TOP_LEVEL_KEYS
+
+
 def check_structure(doc):
     """Return list of error strings (empty = structurally valid)."""
     errors = []
     if not isinstance(doc, dict):
         return ["document must be an object"]
+    unknown = sorted(set(doc) - _top_level_keys())
+    for key in unknown[:5]:
+        errors.append(f"unknown field: {key!r}")
+    if len(unknown) > 5:
+        errors.append(f"+{len(unknown) - 5} more unknown fields")
     for key in REQUIRED_TOP:
         if key not in doc:
             errors.append(f"missing required field: {key}")

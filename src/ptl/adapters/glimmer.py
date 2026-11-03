@@ -45,20 +45,26 @@ HEADER_PROMPT = (
     "Leave dates and line_items EMPTY: other passes handle them. "
     "branch_code is the number printed with the issuer legal name / "
     "merchant address (S00031 style branch), not a shop code printed "
-    "with the brand line; legal_name is the registered company name "
-    "alone, without any branch suffix.")
+    "with the brand line; a footer Restaurant/Store ID (S9's 71498) "
+    "is the branch_code when no branch-labeled number prints; "
+    "legal_name is the registered company name "
+    "alone, without any branch suffix or appended brand/store name "
+    "(CP ALL, not 'CP ALL, 7-Eleven').")
 LINES_PROMPT = (
     "Transcribe ONLY the purchased line items from this Thai retail "
     "receipt into the schema JSON. For each bought product write one "
     "entry in line_items with description, quantity and line_total in "
     "INTEGER satang (32.00 THB = 3200). Ignore totals, dates, tax ID "
     "and all other fields: leave them null or empty. Totals-only rows "
-    "and subtotals are not line items.")
+    "are not line items; transcribe category subtotal rows as line "
+    "items flagged is_category_subtotal.")
 DATES_PROMPT = (
     "Read ONLY the document date from this Thai retail receipt into "
     "the schema JSON: fill dates.issue_date as YYYY-MM-DD plus the "
-    "verbatim raw string in dates.raw_date_string. Ignore everything "
-    "else: leave all other fields null or empty.")
+    "verbatim raw string in dates.raw_date_string. A 2-digit year "
+    "without a corroborating anchor (full YYYYMMDD stamp or explicit "
+    "era marker) stays null with detected_era ambiguous: never guess. "
+    "Ignore everything else: leave all other fields null or empty.")
 FORM_PROMPT = (
     "Classify ONLY the invoice form of this Thai retail receipt into "
     "the schema JSON: set form to abbreviated when the header shows an "
@@ -189,18 +195,34 @@ class GlimmerExtractor(Extractor):
             ) from e
 
     def _extract_with(self, image_b64, prompt):
-        """Run one prompt over the image; return the built doc."""
+        """Run one prompt over the image; return the built doc.
+
+        Truncated or malformed JSON (S5's lines pass locally) gets
+        one re-roll, then degrades to an empty section flagged in
+        source.truncated: a partial doc beats a dead batch.
+        """
         messages = [{"role": "user", "content": prompt,
                      "images": [image_b64]}]
-        body = self._post(messages)
-        text = ((body.get("message") or {}).get("content") or "")
-        if "<|" in text:  # no-think mode leaks an <|eot|> trailer
-            text = text[:text.index("<|")]
-        doc = build_document(normalize_keys(json.loads(text)))
+        parsed = None
+        for _ in range(2):
+            body = self._post(messages)
+            text = ((body.get("message") or {}).get("content") or "")
+            if "<|" in text:  # no-think mode leaks an <|eot|> trailer
+                text = text[:text.index("<|")]
+            try:
+                parsed = normalize_keys(json.loads(text))
+            except ValueError:
+                continue
+            if isinstance(parsed, dict):
+                break
+            parsed = None
+        doc = build_document(parsed or {})
         source_block = doc.setdefault("source", {})
         if isinstance(source_block, dict):
             source_block.setdefault("kind", "ocr")
             source_block["model"] = self.model
+            if parsed is None:
+                source_block["truncated"] = True
         return doc
 
     def extract(self, source, single_pass=False):
@@ -219,12 +241,22 @@ class GlimmerExtractor(Extractor):
         header = self._extract_with(image_b64, HEADER_PROMPT)
         lines = self._extract_with(image_b64, LINES_PROMPT)
         dates = self._extract_with(image_b64, DATES_PROMPT)
+        if not dates.get("dates"):
+            # The dates pass usually fails empty (13/14 D misses),
+            # never half-filled: one blind re-roll, offline and free.
+            dates = self._extract_with(image_b64, DATES_PROMPT)
         form = self._extract_with(image_b64, FORM_PROMPT)
         # Finalize the merged doc: cross-section defaults (e.g. subtotal
         # inference from merged lines) only fire on the whole document.
         # build_document never overwrites explicit values, so this is
         # idempotent over the per-pass builds above.
+        passes = (("header", header), ("lines", lines),
+                  ("dates", dates), ("form", form))
         doc = build_document(_merge_passes(header, lines, dates, form))
+        failed = [name for name, prev in passes
+                  if (prev.get("source") or {}).get("truncated")]
+        if failed and isinstance(doc.get("source"), dict):
+            doc["source"]["truncated_passes"] = failed
         return stamp_source(doc, source), {}
 
 
