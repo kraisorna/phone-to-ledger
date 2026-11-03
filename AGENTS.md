@@ -914,6 +914,30 @@ gold sweep proves zero scored movement on 25 seeds;
 README eval filled (A tax 9/25 dates 4/25 re-measured,
 B dates n/m footnoted); smoke #147 green auto_accept
 first attempt at ฿0.64, 17th straight; 444 green.
+Takes run (user-ordered, demo-critical): all three screen
+takes RECORDED via VHS + frame-verified — take1_2up.mp4
+(158 s; full-res S1+S2 80px-margin composite beats the 1%
+partial tripwire, both rows auto_accept 45.00+89.00,
+฿2.68), take2_trust.mp4 (11 s; R1 exit 2 → pending →
+trust.html 7684 B), take3_glimmer.mp4 (161 s; system d
+MODEL_API_KEY unset, 1 pred 0 errors, 4500/legal/tax
+exact, localhost-only adapter). Tapes + TAKES.md in
+demo/video/submit/ (ignored workbench). VHS drops Thai
+combining marks font-independently — Thai close-ups must
+be stills, never VHS frames. No repo-tree change; 444
+green; committed 95c3cf8 + pushed, tree clean.
+Sample + stills run (48h demo-critical): recompressed
+demo/sample.jpg (2.4MB→483KB, same 1755×3465) smokes
+clean — auto_accept, 4500 + exact legal, only diff vs
+expected.csv is the source_image_ref provenance tag
+(sample.jpg vs s1.jpg), all 15 substantive columns
+identical: recompression BENIGN, keep the file. Smoke
+#148 green at ฿3.49, 18th straight. Focused change:
+scripted SAM-overlay still (stills/make_overlay.py →
+overlay_2up.png, 2 green boxes + row chips, pixel-
+verified) for PLAN shot 5; VHS tapes + TAKES.md updated.
+444 green; sample.jpg + log left uncommitted (not mine
+to commit).
 
 ## Hackathon — Meta Global AI Developer Hackathon (Cerebral Valley)
 
