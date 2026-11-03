@@ -1030,6 +1030,22 @@ S21–S36 carry no EXIF (author-asserted Oct 30–31,
 uncontradicted; mtimes polluted by renames, not
 evidence). Recorded smoke green (s1 0, bad_sum 2),
 zero API. No code change warranted. 444 green.
+Submitted run (deadline deliverable IN): peer commit
+bde64b9 reports v5 uploaded unlisted + CV platform
+submitted (Indie track, Nov 3); shot 5 dropped by
+editorial call to protect 3:00. Upload verified live
+via YouTube oEmbed (title + author resolve — link
+opens for anyone). CV-platform side is author-reported,
+not independently checkable from here. Photo bridge
+stands down (files left in place, harmless). Posture
+for remaining runs: protect the submission — no risky
+changes, keep tree green, light verification only.
+Recorded smoke green (s1 0, bad_sum 2), zero API. 444
+green.
+Guard run (post-submission): all quiet — 444 green,
+upload link re-verified live via oEmbed, no new
+commits. Recorded smoke green (s1 0, bad_sum 2), zero
+API. No changes made, none warranted. 444 green.
 
 ## Hackathon — Meta Global AI Developer Hackathon (Cerebral Valley)
 
