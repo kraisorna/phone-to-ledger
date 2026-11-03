@@ -36,7 +36,7 @@ diff <(cut -d, -f1-14,16 demo/ledger.csv) <(cut -d, -f1-14,16 demo/expected.csv)
 Fixture-backed beats (instant, offline-safe) if the live call stalls:
 
 ```sh
-PYTHONPATH=src:. python3 -m unittest discover -s tests 2>&1 | tail -3   # 438 green
+PYTHONPATH=src:. python3 -m unittest discover -s tests 2>&1 | tail -3   # 444 green
 ptl validate --doc demo/s1.json        # S1 fixture dump, all rules pass
 ptl export --doc demo/s1.json          # prints the ledger CSV row to stdout
 ```
@@ -70,7 +70,7 @@ The 1:30–3:00 beats run fully offline (validate/export/review/tests use
 no API). For the 0:30–1:30 live extraction, play the recorded run:
 `demo/recorded_run.txt` holds one good live capture (exit=0,
 auto_accept, 45.00 row). Screenshot `demo/expected.csv` for the close.
-Live extraction varies run to run (demo smokes 131/146 green since
+Live extraction varies run to run (demo smokes 135/150 green since
 the Oct-31 junk-keys flake; misses were server-timeout events,
 one dropped-VAT run (now flags R4 instead of shipping an empty cell),
 three wholesale field drops (all correctly blocked, green on retry;
@@ -85,7 +85,11 @@ unknown-key allowlist strip, structure-error re-roll,
 validation-guided retry (best of 2, clean reads cost 1),
 R4 vatable-without-vat hard-fail, 8K output cap (flake
 spend guard), stdlib EXIF strip (phone
-GPS never reaches the API).
+GPS never reaches the API; the committed sample.jpg is
+PII-redacted so live `ptl ingest` shows pass-through —
+the strip itself is proven by
+`test_strip_exif_removes_exif_app1_only` and the recorded
+capture, taken when the file still carried EXIF).
 
 ## TODO (demo-critical)
 
@@ -94,4 +98,5 @@ GPS never reaches the API).
 - [x] `demo/bad_sum.json`: S1 with a corrupted total (trust beat)
 - [x] e2e entry point (`ptl e2e`: segment→extract→validate→export in one command)
 - [x] `demo/recorded_run.txt` fallback capture
-- [ ] Record + edit the 3-minute video (primary judging artifact)
+- [ ] Record + edit the 3-minute video (primary judging artifact;
+  v3 cut in demo/video/submit/out/, shot 5 + upload pending)

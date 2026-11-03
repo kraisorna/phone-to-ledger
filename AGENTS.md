@@ -938,6 +938,79 @@ overlay_2up.png, 2 green boxes + row chips, pixel-
 verified) for PLAN shot 5; VHS tapes + TAKES.md updated.
 444 green; sample.jpg + log left uncommitted (not mine
 to commit).
+Shot-5 run (48h demo-critical, peer assembling): v2
+verified compliant — 2:53 (< 3:00 hard limit), 1080p
+H.264 + AAC 48kHz, loudness −14.2 LUFS on target;
+eval card numbers match README exactly incl. Glimmer
+offline legend. Only hole was shot 5 (build.py skips
+it until shots/05_twoup.mp4 exists): cut 13.4 s from
+take1 (command + usage/CSV, both auto_accept) and
+delivered the exact handoff file, join frame-checked.
+Recorded-fixture smoke green (s1 validate 0, export
+exact, bad_sum pending, zero API spend). Sample.jpg
+mystery solved by peer commit d7cd254 (PII redaction).
+444 green; tree clean at 619cc32.
+Photo-bridge run (48h demo-critical): v3 is a v2
+re-encode (identical 173.301729 s timeline, no shot 5;
+specs still pass, captions + PII-redacted receipt
+confirmed in frames) — peer renamed the handoff to
+shots/05_twoup_final.mp4 and wants a REAL phone photo,
+deliberately rejecting composites. Shipped the bridge:
+SHOOT_05.md (framing rules from the 1% partial lesson)
++ render_05.sh (live e2e + VHS + measured auto-cut to
+the exact filename; logic dry-validated to identical
+13.4 s). BLOCKED on user shooting real_2up.jpg.
+Timing warning logged: 173.3 s + shot 5 ≈ 186 s needs
+~7 s trimmed elsewhere for the 3:00 hard limit.
+Recorded smoke green, zero API. 444 green.
+DEMO.md freshness run (48h demo-critical): executed every
+documented command — all green (ingest pass-through on
+redacted sample, s1 validate 0, export row exact, pending
+bad_sum). Fixed 3 stales: 438→444 tests, 131/146→133/148
+smokes, EXIF honesty note (live ingest shows pass-through
+post-redaction; strip proven by unit test + recording).
+Recording deliberately NOT re-cut: the freshness test
+requires exif_stripped=true and the old capture is a
+truthful record of its run. Video TODO now names v3 +
+pending shot 5/upload. No photo yet, no v4. 444 green.
+Live-verify run (48h demo-critical): smoke #149 green —
+auto_accept first attempt, 4500, only source_image_ref
+differs, ฿0.65/25.5s, 19th straight; redacted sample
+demos clean twice. Fallback claim proven structurally:
+zero network imports in pipeline/review/schema/score/
+money — only adapters/ touch sockets (glimmer local,
+spark/sam31 cloud). README quickstart audited line by
+line, all accurate. No code change warranted; still
+blocked on user photo + peer v4. 444 green.
+Public-access run (48h demo-critical): repo proven PUBLIC
+two independent ways — unauthenticated GitHub API says
+private:false (main, pushed Nov 3), and credential-less
+git ls-remote resolves HEAD 619cc32. Disqualification
+risk closed. Recorded smoke green (s1 0, bad_sum 2,
+export byte-matches expected.csv), zero API. No code
+change warranted; still blocked on photo + v4. 444 green.
+Hygiene run (48h demo-critical): secrets scan clean —
+zero key patterns in tracked files (only CSS mask-image
+false hits in the hackathon .mhtml), .env gitignored.
+New-work-only holds: all commit dates Oct 28/29/31 +
+Nov 3, inside the window. Recorded smoke green (s1 0,
+bad_sum 2), zero API. No code change warranted; still
+blocked on photo + v4. 444 green.
+Integrity run (48h demo-critical): v3 full-decode clean
+(ffmpeg error-scan exit 0, zero bad frames — upload-safe;
+22.8 MB mp4). Recorded smoke green (s1 0, bad_sum 2),
+zero API. No code change warranted; still blocked on
+photo + v4. 444 green.
+Smoke-150 run (48h demo-critical): live e2e green —
+auto_accept first attempt, 4500, only source_image_ref
+differs, ฿0.64/25.1s, 20th straight. No code change
+warranted; still blocked on photo + v4. 444 green.
+XLSX run (48h demo-critical): accountant surface
+re-verified offline — export is a valid zip workbook
+with sheet1.xml carrying the legal name + 45.00.
+Recorded smoke green (s1 0, bad_sum 2), zero API. No
+code change warranted; still blocked on photo + v4.
+444 green.
 
 ## Hackathon — Meta Global AI Developer Hackathon (Cerebral Valley)
 
