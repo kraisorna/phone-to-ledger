@@ -3,6 +3,36 @@
 Photo-to-ledger pipeline for Thai tax invoices / receipts / ABB slips:
 phone photo -> ingest -> segment -> extract -> validate -> export.
 
+## Built during the hackathon
+
+Meta Global AI Developer Hackathon (Indie Developer track). Building
+period Oct 27 – Nov 4, 2026; this repository's first commit is
+Oct 28, 2026.
+
+**Built during the event (everything in this repo):** all code in
+`src/ptl/` — ingest + PII scrub, SAM 3.1 segmentation and Muse Spark
+extraction adapters, the offline Muse Glimmer adapter, extraction
+prompts, satang money/VAT math, validation rules R1–R14, triage,
+dedup, review queue + review page, CSV/XLSX export, CLI — plus the
+test suite, the 25 hand-transcribed gold labels
+(`src/ptl/eval/gold.py`), the eval harness and baselines A–D, and
+the demo materials.
+
+**Existed before the event (not counted as hackathon work):**
+
+- Personal design notes written Aug 29–30, 2026 (product plan,
+  Thai document model, OCR edge-case list, a draft extraction
+  schema, a phase-1 flow). They are not in this repo. The schema
+  in `src/ptl/schema/` is based on that draft; its loader and
+  checks, and every other part of the pipeline, were written
+  during the event. The OCR pipeline plan was written Oct 27.
+- Receipt photos: the author's own phone photos of everyday
+  purchases. 20 of the 36 were taken Aug 27 – Oct 3, 2026, and 16
+  were taken Oct 30–31. Only one is in this repo
+  (`demo/sample.jpg`, taken Aug 27, PII-redacted). The photos are
+  input data only; the gold transcriptions of them were made
+  during the event.
+
 ## Layout
 
 - `src/ptl/schema/` — extraction schema JSON (v1.0) + loader
