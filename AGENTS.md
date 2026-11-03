@@ -1011,6 +1011,15 @@ with sheet1.xml carrying the legal name + 45.00.
 Recorded smoke green (s1 0, bad_sum 2), zero API. No
 code change warranted; still blocked on photo + v4.
 444 green.
+Sync run (48h demo-critical): peer commit 4be2bc2
+verified — contains exactly my DEMO.md fixes (444,
+135/150, EXIF note, v3 TODO) + my log lines, nothing
+lost; HEAD == origin/main, public repo current. v4
+re-verified on request: same 2:53 timeline re-encoded
+smaller (21.9 MB), specs/loudness/decode/frames pass.
+Recorded smoke green (s1 0, bad_sum 2), zero API. No
+code change warranted; still blocked on photo + v5.
+444 green.
 
 ## Hackathon — Meta Global AI Developer Hackathon (Cerebral Valley)
 
