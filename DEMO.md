@@ -98,5 +98,8 @@ capture, taken when the file still carried EXIF).
 - [x] `demo/bad_sum.json`: S1 with a corrupted total (trust beat)
 - [x] e2e entry point (`ptl e2e`: segment→extract→validate→export in one command)
 - [x] `demo/recorded_run.txt` fallback capture
-- [ ] Record + edit the 3-minute video (primary judging artifact;
-  v3 cut in demo/video/submit/out/, shot 5 + upload pending)
+- [x] Record + edit the 3-minute video (primary judging artifact):
+  v5 cut (2:53), uploaded unlisted at https://youtu.be/NN6eb5KNLeI;
+  shot 5 (2-up photo) dropped to stay under 3:00
+- [x] Submitted on the Cerebral Valley platform (Nov 3, Indie
+  Developer track, "Build for Your World")
