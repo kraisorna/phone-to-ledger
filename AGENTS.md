@@ -1020,6 +1020,16 @@ smaller (21.9 MB), specs/loudness/decode/frames pass.
 Recorded smoke green (s1 0, bad_sum 2), zero API. No
 code change warranted; still blocked on photo + v5.
 444 green.
+V5 + originality run (48h demo-critical): v5 verified —
+same 2:53 timeline (no shot 5 yet), 1080p/AAC48k,
+−14.2 LUFS, full-decode clean; current best, 21.9 MB.
+Peer's README originality section corroborated: first
+commit Oct 28 ✓, EXIF dates on S1–S20 all pre-Oct 26
+(S1 Aug 27 → S20 Oct 3, exactly the claimed 20);
+S21–S36 carry no EXIF (author-asserted Oct 30–31,
+uncontradicted; mtimes polluted by renames, not
+evidence). Recorded smoke green (s1 0, bad_sum 2),
+zero API. No code change warranted. 444 green.
 
 ## Hackathon — Meta Global AI Developer Hackathon (Cerebral Valley)
 
